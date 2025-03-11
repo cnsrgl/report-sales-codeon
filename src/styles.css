@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* WordPress Admin ile uyumlu hale getirmek için özelleştirmeler */
+.wasm-app button {
+  @apply cursor-pointer;
+}
+
+/* Admin sayfasındaki bazı WordPress stillerini ezmeyin */
+.wasm-app h1, .wasm-app h2, .wasm-app h3, .wasm-app h4, .wasm-app h5, .wasm-app h6 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+/* Lucide ikonlarını düzgün görüntüle */
+.lucide {
+  width: 1em;
+  height: 1em;
+  stroke-width: 1.5;
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

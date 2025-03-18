@@ -129,18 +129,26 @@ class WASM_API {
     
     /**
      * API: PDF raporu oluştur
+     * Optimize edilmiş ve daha güvenilir PDF oluşturma fonksiyonu
      */
     public function generate_pdf_report($request) {
         // Log başlangıcı
         error_log('WASM API: PDF raporu oluşturuluyor - ' . json_encode($request->get_params()));
         
-        // FPDF PDF sınıfını içe aktar
+        // FPDF sınıfını içe aktar
         require_once WASM_PLUGIN_DIR . 'includes/class-wasm-fpdf.php';
         
         // İstek parametrelerini al
         $params = $request->get_params();
         $report_type = isset($params['reportType']) ? sanitize_text_field($params['reportType']) : 'summary';
         $filters = isset($params['filters']) ? $params['filters'] : [];
+        
+        // Geçerli rapor tiplerini kontrol et
+        $valid_report_types = array('summary', 'products', 'stock', 'sales');
+        if (!in_array($report_type, $valid_report_types)) {
+            error_log('WASM API: Geçersiz rapor türü: ' . $report_type);
+            return new WP_Error('invalid_report_type', __('Geçersiz rapor türü.', 'wc-advanced-stock-manager'), ['status' => 400]);
+        }
         
         // Raporlama için verileri topla
         $data = [];
@@ -150,6 +158,8 @@ class WASM_API {
             switch ($report_type) {
                 case 'summary':
                     // Özet raporu için tüm verileri topla
+                    error_log('WASM API: Özet raporu verileri toplanıyor');
+                    
                     $summary_request = new WP_REST_Request('GET', '/wc-advanced-stock-manager/v1/summary');
                     $data['summary'] = $this->get_summary($summary_request);
                     
@@ -163,9 +173,19 @@ class WASM_API {
                     $products_request = new WP_REST_Request('GET', '/wc-advanced-stock-manager/v1/products');
                     if (!empty($filters)) {
                         foreach ($filters as $key => $value) {
-                            $products_request->set_param($key, $value);
+                            if ($key === 'dateRange' && is_array($value)) {
+                                if (isset($value['start'])) $products_request->set_param('start_date', sanitize_text_field($value['start']));
+                                if (isset($value['end'])) $products_request->set_param('end_date', sanitize_text_field($value['end']));
+                            } elseif ($key === 'category' && $value !== 'all') {
+                                $products_request->set_param('category', sanitize_text_field($value));
+                            } elseif ($key === 'stockStatus' && $value !== 'all') {
+                                $products_request->set_param('stock_status', sanitize_text_field($value));
+                            } elseif ($key === 'search' && !empty($value)) {
+                                $products_request->set_param('search', sanitize_text_field($value));
+                            }
                         }
                     }
+                    
                     $products = $this->get_products($products_request);
                     $data['reorderCount'] = count(array_filter($products, function($product) {
                         return isset($product['recommendedOrder']) && $product['recommendedOrder'] > 0;
@@ -173,37 +193,41 @@ class WASM_API {
                     break;
                     
                 case 'products':
-                    // Ürün raporu için ürün verilerini topla
-                    $products_request = new WP_REST_Request('GET', '/wc-advanced-stock-manager/v1/products');
-                    if (!empty($filters)) {
-                        foreach ($filters as $key => $value) {
-                            $products_request->set_param($key, $value);
-                        }
-                    }
-                    $data['products'] = $this->get_products($products_request);
-                    break;
-                    
                 case 'stock':
-                    // Stok raporu için ürün verilerini topla (düşük stok ve sipariş edilecekler)
+                    // Ürün raporu için ürün verilerini topla
+                    error_log('WASM API: Ürün raporu verileri toplanıyor');
+                    
                     $products_request = new WP_REST_Request('GET', '/wc-advanced-stock-manager/v1/products');
                     if (!empty($filters)) {
                         foreach ($filters as $key => $value) {
-                            $products_request->set_param($key, $value);
+                            if ($key === 'dateRange' && is_array($value)) {
+                                if (isset($value['start'])) $products_request->set_param('start_date', sanitize_text_field($value['start']));
+                                if (isset($value['end'])) $products_request->set_param('end_date', sanitize_text_field($value['end']));
+                            } elseif ($key === 'category' && $value !== 'all') {
+                                $products_request->set_param('category', sanitize_text_field($value));
+                            } elseif ($key === 'stockStatus' && $value !== 'all') {
+                                $products_request->set_param('stock_status', sanitize_text_field($value));
+                            } elseif ($key === 'search' && !empty($value)) {
+                                $products_request->set_param('search', sanitize_text_field($value));
+                            }
                         }
                     }
+                    
                     $data['products'] = $this->get_products($products_request);
                     break;
                     
                 case 'sales':
                     // Satış raporu için trend verilerini topla
+                    error_log('WASM API: Satış raporu verileri toplanıyor');
+                    
                     $trend_request = new WP_REST_Request('GET', '/wc-advanced-stock-manager/v1/sales-trend');
                     $trend_request->set_param('months', 12);
                     $data['salesTrend'] = $this->get_sales_trend($trend_request);
                     break;
-                    
-                default:
-                    return new WP_Error('invalid_report_type', __('Geçersiz rapor türü.', 'wc-advanced-stock-manager'), ['status' => 400]);
             }
+            
+            // Verilerin hazır olduğunu logla
+            error_log('WASM API: Rapor verileri toplandı, PDF oluşturuluyor');
             
             // PDF oluşturucu sınıfını başlat
             $pdf_generator = new WASM_FPDF();
@@ -212,7 +236,7 @@ class WASM_API {
             $pdf_content = $pdf_generator->generate_pdf($report_type, $data, $filters);
             
             if (!$pdf_content) {
-                error_log('WASM API: PDF oluşturma başarısız oldu');
+                error_log('WASM API: PDF oluşturma başarısız oldu - FPDF bir içerik döndürmedi');
                 return new WP_Error('pdf_generation_failed', __('PDF oluşturma başarısız oldu.', 'wc-advanced-stock-manager'), ['status' => 500]);
             }
             
@@ -220,22 +244,33 @@ class WASM_API {
             $file_name = 'wasm-' . $report_type . '-report-' . date('Y-m-d') . '.pdf';
             
             // Base64 formatında PDF içeriğini döndür
+            $encoded_content = base64_encode($pdf_content);
+            
+            // İçeriğin geçerli olup olmadığını kontrol et
+            if (!$encoded_content) {
+                error_log('WASM API: PDF içeriği base64 olarak kodlanamadı');
+                return new WP_Error('pdf_encoding_failed', __('PDF içeriği kodlanamadı.', 'wc-advanced-stock-manager'), ['status' => 500]);
+            }
+            
+            // Yanıt boyutunu logla
+            error_log('WASM API: PDF raporu başarıyla oluşturuldu - ' . strlen($encoded_content) . ' bayt');
+            
             $response = [
                 'success' => true,
                 'fileName' => $file_name,
-                'content' => base64_encode($pdf_content)
+                'content' => $encoded_content
             ];
             
-            error_log('WASM API: PDF raporu başarıyla oluşturuldu');
             return $response;
             
         } catch (Exception $e) {
             error_log('WASM API: PDF oluşturma hatası - ' . $e->getMessage());
+            error_log('WASM API: Hata Detayları - ' . print_r($e->getTrace(), true));
             return new WP_Error('pdf_exception', $e->getMessage(), ['status' => 500]);
         }
     }
-}
+} // Sınıf tanımı burada bitiyor
 
-// API sınıfını oluştur ve başlat
+// API sınıfını oluştur ve başlat - Sınıf DIŞINDA
 global $wasm_api;
 $wasm_api = new WASM_API();

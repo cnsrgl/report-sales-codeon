@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: WooCommerce Advanced Stock Manager
+ * Plugin Name: WooCommerce Advanced Stock Manager Beta
  * Plugin URI: https://woocommerce.com/products/advanced-stock-manager/
  * Description: Gelişmiş stok yönetim özellikleri ile WooCommerce'i güçlendirir.
- * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Version: 1.2.0
+ * Author: Codeon
+ * Author URI: https://codeon.ch
  * Text Domain: wc-advanced-stock-manager
  * Domain Path: /languages
  * WC requires at least: 3.0.0

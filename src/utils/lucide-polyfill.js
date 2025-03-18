@@ -108,6 +108,10 @@ export const ChevronRight = createLucideIcon('ChevronRight', [
   createElement('polyline', { points: '9 18 15 12 9 6', key: 'svg-0' }),
 ]);
 
+export const Check = createLucideIcon('Check', [
+  createElement('polyline', { points: '20 6 9 17 4 12', key: 'svg-0' }),
+]);
+
 export const Globe = createLucideIcon('Globe', [
   createElement('circle', { cx: '12', cy: '12', r: '10', key: 'svg-0' }),
   createElement('line', { x1: '2', y1: '12', x2: '22', y2: '12', key: 'svg-1' }),
@@ -127,5 +131,6 @@ export const lucideIcons = {
   AlertCircle,
   ChevronDown,
   ChevronRight,
-  Globe
+  Globe,
+  Check 
 };

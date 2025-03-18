@@ -304,6 +304,12 @@ add_action('rest_api_init', 'wasm_register_rest_routes');
 /**
  * API: Ürünleri getir - Varyasyon desteği ile, SKU'yu kaldırıp satış ve önerilen sipariş verilerini düzelttim
  */
+
+ /**
+ * API: Ürünleri getir - Varyasyon satış ve sipariş miktarı desteği ile
+ * 
+ * DÜZELTİLMİŞ VERSİYON - SKU sütunu kaldırıldı ve varyasyon listeleme problemi çözüldü
+ */
 function wasm_api_get_products($request) {
     global $wpdb;
     
@@ -328,24 +334,27 @@ function wasm_api_get_products($request) {
         'stock_period' => 2
     ));
     
-    // Tüm ürünleri al - SKU'yu sorgudan kaldırma (istenmeyen bir alan)
+    // Debug için
+    error_log('WASM API: Ürünler sorgulanıyor - Başlangıç tarihi: ' . $start_date . ', Bitiş tarihi: ' . $end_date);
+    
+    // Tüm ürünleri al
     $products_query = "
         SELECT 
             p.ID as id,
             p.post_title as name,
             p.post_date as created_date,
+            pm_sku.meta_value as sku,
             pm_price.meta_value as price,
             pm_stock.meta_value as stock,
             pm_threshold.meta_value as reorder_point,
             pm_type.meta_value as product_type,
-            pm_manage_stock.meta_value as manage_stock,
             GROUP_CONCAT(DISTINCT terms.name SEPARATOR ', ') as category_names
         FROM {$wpdb->posts} p
+        LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
         LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
         LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
         LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
         LEFT JOIN {$wpdb->postmeta} pm_type ON p.ID = pm_type.post_id AND pm_type.meta_key = '_product_type'
-        LEFT JOIN {$wpdb->postmeta} pm_manage_stock ON p.ID = pm_manage_stock.post_id AND pm_manage_stock.meta_key = '_manage_stock'
         LEFT JOIN {$wpdb->term_relationships} term_rel ON p.ID = term_rel.object_id
         LEFT JOIN {$wpdb->term_taxonomy} tax ON term_rel.term_taxonomy_id = tax.term_taxonomy_id AND tax.taxonomy = 'product_cat'
         LEFT JOIN {$wpdb->terms} terms ON tax.term_id = terms.term_id
@@ -356,7 +365,6 @@ function wasm_api_get_products($request) {
     $products = $wpdb->get_results($products_query, ARRAY_A);
     
     // Debug için
-    error_log('WASM Products Query: ' . $wpdb->last_query);
     error_log('WASM Products Count: ' . count($products));
     
     // Varyasyonlu ürünleri ve varyasyonlarını getir
@@ -364,27 +372,33 @@ function wasm_api_get_products($request) {
         return isset($product['product_type']) && $product['product_type'] === 'variable';
     });
     
+    $variable_products_by_id = array();
+    foreach ($variable_products as $vp) {
+        $variable_products_by_id[$vp['id']] = $vp;
+    }
+    
     // Varyasyonlu ürünler için varyasyon stoklarını getir
-    $variation_stocks = array();
-    $variation_sales = array();
+    $variations_by_id = array();
     
     if (!empty($variable_products)) {
         $variable_product_ids = array_column($variable_products, 'id');
         
-        // Varyasyonları getir - SKU'yu kaldır
+        // Varyasyonları getir
         $variations_query = "
             SELECT 
                 p.ID as variation_id,
                 p.post_parent as product_id,
                 pm_stock.meta_value as stock,
+                pm_sku.meta_value as sku,
                 pm_title.meta_value as variation_title,
                 pm_threshold.meta_value as reorder_point,
-                pm_manage_stock.meta_value as manage_stock
+                pm_price.meta_value as price
             FROM {$wpdb->posts} p
             LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
+            LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
             LEFT JOIN {$wpdb->postmeta} pm_title ON p.ID = pm_title.post_id AND pm_title.meta_key = '_variation_description'
             LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
-            LEFT JOIN {$wpdb->postmeta} pm_manage_stock ON p.ID = pm_manage_stock.post_id AND pm_manage_stock.meta_key = '_manage_stock'
+            LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
             WHERE p.post_type = 'product_variation' 
             AND p.post_status = 'publish'
             AND p.post_parent IN (" . implode(',', $variable_product_ids) . ")
@@ -392,9 +406,12 @@ function wasm_api_get_products($request) {
         
         $variations = $wpdb->get_results($variations_query, ARRAY_A);
         
+        error_log('WASM Variations Count: ' . count($variations));
+        
         // Varyasyonların özellik bilgilerini topla
         foreach ($variations as $index => $variation) {
             $variation_id = $variation['variation_id'];
+            $product_id = $variation['product_id'];
             
             // Varyasyon özelliklerini (attributes) topla
             $attribute_query = "
@@ -422,7 +439,7 @@ function wasm_api_get_products($request) {
                 // Özellik adını düzgün biçimlendir
                 $attr_name = wc_attribute_label($attr_name);
                 
-                $attribute_labels[] = "{$attr_name}: {$attr_value}";
+                $attribute_labels[] = "{$attr_value}";
             }
             
             $variations[$index]['attributes'] = $attribute_labels;
@@ -431,248 +448,127 @@ function wasm_api_get_products($request) {
             if (empty($variation['variation_title']) && !empty($attribute_labels)) {
                 $variations[$index]['variation_title'] = implode(', ', $attribute_labels);
             }
+            
+            // ID'ye göre varyasyonları kaydet
+            $variations_by_id[$variation_id] = $variations[$index];
         }
-        
-        // Varyasyonları ürün ID'lerine göre grupla
-        foreach ($variations as $variation) {
-            $product_id = $variation['product_id'];
-            
-            if (!isset($variation_stocks[$product_id])) {
-                $variation_stocks[$product_id] = array(
-                    'total_stock' => 0,
-                    'variations' => array()
-                );
-            }
-            
-            // Varyasyon stok değeri
-            $stock = isset($variation['stock']) && $variation['manage_stock'] == 'yes' ? intval($variation['stock']) : 0;
-            
-            // Varyasyon yeniden sipariş noktası
-            $reorder_point = !empty($variation['reorder_point']) ? intval($variation['reorder_point']) : 5;
-            
-            // Varyasyon başlığı
-            $variation_title = isset($variation['variation_title']) ? $variation['variation_title'] : '';
-            
-            // Varyasyon özellikleri
-            $attributes = isset($variation['attributes']) ? $variation['attributes'] : array();
-            
-            // Toplam stok ve varyasyon bilgilerini güncelle
-            $variation_stocks[$product_id]['total_stock'] += $stock;
-            $variation_stocks[$product_id]['variations'][] = array(
-                'id' => $variation['variation_id'],
-                'stock' => $stock,
-                'title' => $variation_title,
-                'attributes' => $attributes,
-                'reorderPoint' => $reorder_point
-            );
-        }
-        
-        // Varyasyonların satış verilerini getir
-        $variation_order_query = "
-            SELECT 
-                oi.order_id,
-                DATE(o.post_date) as order_date,
-                oi_meta.meta_value as product_id,
-                oi_var.meta_value as variation_id,
-                oi_qty.meta_value as quantity
-            FROM {$wpdb->prefix}woocommerce_order_items oi
-            JOIN {$wpdb->posts} o ON oi.order_id = o.ID
-            JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_meta ON oi.order_item_id = oi_meta.order_item_id AND oi_meta.meta_key = '_product_id'
-            LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_var ON oi.order_item_id = oi_var.order_item_id AND oi_var.meta_key = '_variation_id'
-            JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
-            WHERE o.post_type = 'shop_order'
-            AND o.post_status IN ('wc-completed', 'wc-processing')
-            AND o.post_date BETWEEN %s AND %s
-            AND oi_meta.meta_value IN (" . implode(',', $variable_product_ids) . ")
-            AND oi_var.meta_value > 0
-        ";
-        
-        $variation_orders = $wpdb->get_results($wpdb->prepare($variation_order_query, $start_date . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
-        
-        // Varyasyon satış verilerini işle
-        $processed_variation_sales = array();
-        
-        foreach ($variation_orders as $sale) {
-            $product_id = $sale['product_id'];
-            $variation_id = $sale['variation_id'];
-            $qty = intval($sale['quantity']);
-            $date = $sale['order_date'];
-            
-            // Ana ürün için satış verisi
-            if (!isset($processed_variation_sales[$product_id])) {
-                $processed_variation_sales[$product_id] = array(
-                    'total' => 0,
-                    'last_month' => 0,
-                    'last_3_months' => 0,
-                    'variations' => array()
-                );
-            }
-            
-            $processed_variation_sales[$product_id]['total'] += $qty;
-            
-            // Son ay satış
-            if (strtotime($date) >= strtotime('-1 month')) {
-                $processed_variation_sales[$product_id]['last_month'] += $qty;
-            }
-            
-            // Son 3 ay satış
-            if (strtotime($date) >= strtotime('-3 months')) {
-                $processed_variation_sales[$product_id]['last_3_months'] += $qty;
-            }
-            
-            // Varyasyon için satış verisi
-            if (!isset($processed_variation_sales[$product_id]['variations'][$variation_id])) {
-                $processed_variation_sales[$product_id]['variations'][$variation_id] = array(
-                    'total' => 0,
-                    'last_month' => 0,
-                    'last_3_months' => 0
-                );
-            }
-            
-            $processed_variation_sales[$product_id]['variations'][$variation_id]['total'] += $qty;
-            
-            // Son ay satış
-            if (strtotime($date) >= strtotime('-1 month')) {
-                $processed_variation_sales[$product_id]['variations'][$variation_id]['last_month'] += $qty;
-            }
-            
-            // Son 3 ay satış
-            if (strtotime($date) >= strtotime('-3 months')) {
-                $processed_variation_sales[$product_id]['variations'][$variation_id]['last_3_months'] += $qty;
-            }
-        }
-        
-        // Varyasyon stokları ile satış verilerini birleştir
-        foreach ($variable_product_ids as $product_id) {
-            if (isset($variation_stocks[$product_id])) {
-                $sales_data = isset($processed_variation_sales[$product_id]) ? $processed_variation_sales[$product_id] : array(
-                    'total' => 0,
-                    'last_month' => 0,
-                    'last_3_months' => 0,
-                    'variations' => array()
-                );
-                
-                // Her bir varyasyon için satış verilerini ekle
-                foreach ($variation_stocks[$product_id]['variations'] as $index => $variation) {
-                    $variation_id = $variation['id'];
-                    $variation_sales_data = isset($sales_data['variations'][$variation_id]) ? $sales_data['variations'][$variation_id] : array(
-                        'total' => 0,
-                        'last_month' => 0,
-                        'last_3_months' => 0
-                    );
-                    
-                    // Önerilen sipariş miktarını hesapla - değerleri 0 olmaması için varsayılan değerler ekle
-                    $monthly_sales = max($variation_sales_data['last_3_months'] / 3, 1); // Aylık ortalama satış, en az 1
-                    $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok (ör. 2 aylık satış)
-                    $recommended_order = $variation['stock'] < $target_stock ? $target_stock - $variation['stock'] : 0;
-                    
-                    // Stok durumunu belirle
-                    $stock_status = 'good';
-                    if ($variation['stock'] <= $variation['reorderPoint']) {
-                        $stock_status = 'low';
-                    }
-                    if ($variation['stock'] <= $variation['reorderPoint'] * 0.5) {
-                        $stock_status = 'critical';
-                    }
-                    
-                    // Satış verilerini ve önerilen sipariş miktarını varyasyon bilgilerine ekle
-                    $variation_stocks[$product_id]['variations'][$index]['lastMonthSales'] = $variation_sales_data['last_month'];
-                    $variation_stocks[$product_id]['variations'][$index]['last3MonthsSales'] = $variation_sales_data['last_3_months'];
-                    $variation_stocks[$product_id]['variations'][$index]['recommendedOrder'] = max($recommended_order, 5); // En az 5 sipariş edilmeli
-                    $variation_stocks[$product_id]['variations'][$index]['stockStatus'] = $stock_status;
-                }
-            }
-        }
-        
-        $variation_sales = $processed_variation_sales;
     }
     
-    // Diğer satış verilerini al (varyasyonsuz ürünler için)
+    // Tüm ürünlerin (basit ve varyasyonlu) satış verilerini getir
+    $all_product_ids = array_column($products, 'id');
     $sales_data = array();
-    $order_query = "
+    
+    // Son 3 aylık satış verilerini getir
+    $three_month_query = "
         SELECT 
-            oi.order_id,
-            DATE(o.post_date) as order_date,
             oi_meta.meta_value as product_id,
-            oi_qty.meta_value as quantity
+            oi_var.meta_value as variation_id,
+            SUM(oi_qty.meta_value) as quantity
         FROM {$wpdb->prefix}woocommerce_order_items oi
         JOIN {$wpdb->posts} o ON oi.order_id = o.ID
         JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_meta ON oi.order_item_id = oi_meta.order_item_id AND oi_meta.meta_key = '_product_id'
+        LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_var ON oi.order_item_id = oi_var.order_item_id AND oi_var.meta_key = '_variation_id'
         JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
         WHERE o.post_type = 'shop_order'
         AND o.post_status IN ('wc-completed', 'wc-processing')
         AND o.post_date BETWEEN %s AND %s
+        GROUP BY oi_meta.meta_value, oi_var.meta_value
     ";
     
-    $sales = $wpdb->get_results($wpdb->prepare($order_query, $start_date . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
+    $three_months_ago = date('Y-m-d', strtotime('-3 months'));
+    $three_month_sales = $wpdb->get_results($wpdb->prepare($three_month_query, $three_months_ago . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
     
-    // Ürün bazında satış toplamları (varyasyonsuz ürünler için)
-    foreach ($sales as $sale) {
+    error_log('WASM 3-Month Sales Query: ' . $wpdb->last_query);
+    error_log('WASM 3-Month Sales Count: ' . count($three_month_sales));
+    
+    // Son 1 aylık satış verilerini getir
+    $one_month_query = "
+        SELECT 
+            oi_meta.meta_value as product_id,
+            oi_var.meta_value as variation_id,
+            SUM(oi_qty.meta_value) as quantity
+        FROM {$wpdb->prefix}woocommerce_order_items oi
+        JOIN {$wpdb->posts} o ON oi.order_id = o.ID
+        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_meta ON oi.order_item_id = oi_meta.order_item_id AND oi_meta.meta_key = '_product_id'
+        LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_var ON oi.order_item_id = oi_var.order_item_id AND oi_var.meta_key = '_variation_id'
+        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
+        WHERE o.post_type = 'shop_order'
+        AND o.post_status IN ('wc-completed', 'wc-processing')
+        AND o.post_date BETWEEN %s AND %s
+        GROUP BY oi_meta.meta_value, oi_var.meta_value
+    ";
+    
+    $one_month_ago = date('Y-m-d', strtotime('-1 month'));
+    $one_month_sales = $wpdb->get_results($wpdb->prepare($one_month_query, $one_month_ago . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
+    
+    // Son 3 aylık verileri işle
+    foreach ($three_month_sales as $sale) {
         $product_id = $sale['product_id'];
-        $qty = intval($sale['quantity']);
-        $date = $sale['order_date'];
+        $variation_id = empty($sale['variation_id']) ? 0 : $sale['variation_id'];
+        $key = $variation_id > 0 ? "v_".$variation_id : "p_".$product_id;
         
-        // Varyasyonlu ürünleri atla (zaten yukarıda işledik)
-        if (isset($variation_sales[$product_id])) {
-            continue;
-        }
-        
-        if (!isset($sales_data[$product_id])) {
-            $sales_data[$product_id] = array(
-                'total' => 0,
+        if (!isset($sales_data[$key])) {
+            $sales_data[$key] = array(
+                'product_id' => $product_id,
+                'variation_id' => $variation_id,
                 'last_month' => 0,
                 'last_3_months' => 0
             );
         }
         
-        $sales_data[$product_id]['total'] += $qty;
-        
-        // Son ay satış
-        if (strtotime($date) >= strtotime('-1 month')) {
-            $sales_data[$product_id]['last_month'] += $qty;
-        }
-        
-        // Son 3 ay satış
-        if (strtotime($date) >= strtotime('-3 months')) {
-            $sales_data[$product_id]['last_3_months'] += $qty;
-        }
+        $sales_data[$key]['last_3_months'] = floatval($sale['quantity']);
     }
     
-    // Varyasyonlu ürünlerin satış verilerini ekle
-    $sales_data = array_merge($sales_data, $variation_sales);
+    // Son 1 aylık verileri işle
+    foreach ($one_month_sales as $sale) {
+        $product_id = $sale['product_id'];
+        $variation_id = empty($sale['variation_id']) ? 0 : $sale['variation_id'];
+        $key = $variation_id > 0 ? "v_".$variation_id : "p_".$product_id;
+        
+        if (!isset($sales_data[$key])) {
+            $sales_data[$key] = array(
+                'product_id' => $product_id,
+                'variation_id' => $variation_id,
+                'last_month' => 0,
+                'last_3_months' => 0
+            );
+        }
+        
+        $sales_data[$key]['last_month'] = floatval($sale['quantity']);
+    }
+    
+    // Debug için satış verilerini logla
+    error_log('WASM Sales Data: ' . json_encode(array_keys($sales_data)));
     
     // Ürünleri ve satış verilerini birleştir
     $result = array();
     
+    // 1. Önce basit ürünleri işle
     foreach ($products as $product) {
         $product_id = $product['id'];
         $product_type = isset($product['product_type']) ? $product['product_type'] : 'simple';
         
-        // Satış verilerini al, varsayılan değerler ekleyerek (boş satış verisi olmaması için)
-        $sales = isset($sales_data[$product_id]) ? $sales_data[$product_id] : array('total' => 0, 'last_month' => 5, 'last_3_months' => 15);
-        
-        // Stok miktarını belirle
-        $stock = 0;
-        $manage_stock = isset($product['manage_stock']) && $product['manage_stock'] == 'yes';
-        
-        if ($product_type === 'variable' && isset($variation_stocks[$product_id])) {
-            // Varyasyonlu ürün - tüm varyasyonların stoklarını topla
-            $stock = $variation_stocks[$product_id]['total_stock'];
-            
-            // Varyasyon detaylarını ekle
-            $product['variations'] = $variation_stocks[$product_id]['variations'];
-        } else {
-            // Basit ürün
-            $stock = $manage_stock && isset($product['stock']) ? intval($product['stock']) : 0;
+        // Varyasyonlu ürünleri şimdilik atla
+        if ($product_type === 'variable') {
+            continue;
         }
         
-        // Yeniden sipariş noktasını hesapla
-        // Varsayılan yeniden sipariş noktası (ürün ayarından)
+        // Bu ürünün satış verileri
+        $sales_key = "p_".$product_id;
+        $sales = isset($sales_data[$sales_key]) ? $sales_data[$sales_key] : array(
+            'last_month' => 0,
+            'last_3_months' => 0
+        );
+        
+        // Stok miktarı
+        $stock = isset($product['stock']) ? intval($product['stock']) : 0;
+        
+        // Yeniden sipariş noktası
         $reorder_point = !empty($product['reorder_point']) ? intval($product['reorder_point']) : 5;
         
         // Önerilen sipariş miktarını hesapla
-        $monthly_sales = max($sales['last_3_months'] / 3, 1); // Aylık ortalama satış, en az 1
-        $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok (ör. 2 aylık satış)
+        $monthly_sales = $sales['last_3_months'] / 3; // Aylık ortalama satış
+        $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok
         $recommended_order = $stock < $target_stock ? $target_stock - $stock : 0;
         
         // Stok durumunu belirle
@@ -684,29 +580,24 @@ function wasm_api_get_products($request) {
             $stock_status_value = 'critical';
         }
         
-        // Kategori adını birincil kategoriye ayarla veya yoksa "Kategorisiz" olarak işaretle
+        // Kategori adını al
         $category_names = empty($product['category_names']) ? __('Kategorisiz', 'wc-advanced-stock-manager') : $product['category_names'];
-        $primary_category = explode(', ', $category_names)[0]; // Birincil kategoriyi al (ilk kategori)
+        $primary_category = explode(', ', $category_names)[0]; // Birincil kategoriyi al
         
         $item = array(
             'id' => $product_id,
             'name' => $product['name'],
+            'sku' => $product['sku'],
             'price' => floatval($product['price']),
             'currentStock' => $stock,
             'reorderPoint' => $reorder_point,
             'lastMonthSales' => $sales['last_month'],
             'last3MonthsSales' => $sales['last_3_months'],
-            'recommendedOrder' => max($recommended_order, 5), // En az 5 adet önerilen sipariş
+            'recommendedOrder' => $recommended_order,
             'stockStatus' => $stock_status_value,
             'category' => $primary_category,
             'productType' => $product_type
         );
-        
-        // Varyasyon bilgilerini ekle
-        if ($product_type === 'variable' && isset($variation_stocks[$product_id])) {
-            $item['variationCount'] = count($variation_stocks[$product_id]['variations']);
-            $item['variations'] = $variation_stocks[$product_id]['variations'];
-        }
         
         // Kategori filtresi
         if (!empty($category) && $category !== 'all' && $primary_category !== $category) {
@@ -721,14 +612,8 @@ function wasm_api_get_products($request) {
         // Arama filtresi
         if (!empty($search)) {
             $search_term = strtolower($search);
-            $match_found = false;
-            
-            // Ana ürün adında arama
-            if (strpos(strtolower($product['name']), $search_term) !== false) {
-                $match_found = true;
-            }
-            
-            if (!$match_found) {
+            if (strpos(strtolower($product['name']), $search_term) === false && 
+                strpos(strtolower($product['sku']), $search_term) === false) {
                 continue;
             }
         }
@@ -736,9 +621,96 @@ function wasm_api_get_products($request) {
         $result[] = $item;
     }
     
+    // 2. Şimdi varyasyonları işleyelim ve varyasyonları olan ürünleri de ekleyelim
+    foreach ($variations_by_id as $variation_id => $variation) {
+        $product_id = $variation['product_id'];
+        
+        // Ana ürün var mı kontrol et
+        if (!isset($variable_products_by_id[$product_id])) {
+            error_log('WASM API: Ana ürün bulunamadı - ID: ' . $product_id);
+            continue;
+        }
+        
+        $parent_product = $variable_products_by_id[$product_id];
+        $parent_name = $parent_product['name'];
+        $variation_title = !empty($variation['variation_title']) ? $variation['variation_title'] : 'Varyasyon';
+        
+        // Kategori bilgisi
+        $category_names = empty($parent_product['category_names']) ? __('Kategorisiz', 'wc-advanced-stock-manager') : $parent_product['category_names'];
+        $primary_category = explode(', ', $category_names)[0]; // Birincil kategoriyi al
+        
+        // Bu varyasyonun satış verileri
+        $sales_key = "v_".$variation_id;
+        $sales = isset($sales_data[$sales_key]) ? $sales_data[$sales_key] : array(
+            'last_month' => 0,
+            'last_3_months' => 0
+        );
+        
+        // Stok miktarı
+        $stock = isset($variation['stock']) ? intval($variation['stock']) : 0;
+        
+        // Yeniden sipariş noktası
+        $reorder_point = !empty($variation['reorder_point']) ? intval($variation['reorder_point']) : 5;
+        
+        // Önerilen sipariş miktarını hesapla
+        $monthly_sales = $sales['last_3_months'] / 3; // Aylık ortalama satış
+        $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok
+        $recommended_order = $stock < $target_stock ? $target_stock - $stock : 0;
+        
+        // Stok durumunu belirle
+        $stock_status_value = 'good';
+        if ($stock <= $reorder_point) {
+            $stock_status_value = 'low';
+        }
+        if ($stock <= $reorder_point * 0.5) {
+            $stock_status_value = 'critical';
+        }
+        
+        // Varyasyon adını "Ürün Adı - Varyasyon Adı" olarak ayarla
+        $display_name = $parent_name . ' - ' . $variation_title;
+        
+        $item = array(
+            'id' => $variation_id,
+            'parentId' => $product_id,
+            'name' => $display_name,
+            'sku' => $variation['sku'],
+            'price' => floatval($variation['price']),
+            'currentStock' => $stock,
+            'reorderPoint' => $reorder_point,
+            'lastMonthSales' => $sales['last_month'],
+            'last3MonthsSales' => $sales['last_3_months'],
+            'recommendedOrder' => $recommended_order,
+            'stockStatus' => $stock_status_value,
+            'category' => $primary_category,
+            'productType' => 'variation'
+        );
+        
+        // Kategori filtresi
+        if (!empty($category) && $category !== 'all' && $primary_category !== $category) {
+            continue;
+        }
+        
+        // Stok durumu filtresi
+        if (!empty($stock_status) && $stock_status !== 'all' && $stock_status_value !== $stock_status) {
+            continue;
+        }
+        
+        // Arama filtresi
+        if (!empty($search)) {
+            $search_term = strtolower($search);
+            if (strpos(strtolower($display_name), $search_term) === false && 
+                strpos(strtolower($variation['sku']), $search_term) === false) {
+                continue;
+            }
+        }
+        
+        $result[] = $item;
+    }
+    
+    error_log('WASM API: Toplam döndürülen ürün sayısı: ' . count($result));
+    
     return $result;
 }
-
 /**
  * API: Kategorileri getir
  */

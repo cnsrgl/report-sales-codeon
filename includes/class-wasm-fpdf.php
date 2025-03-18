@@ -299,218 +299,275 @@ class WASM_FPDF extends FPDF {
         }
     }
     
-    /**
-     * Ürün raporu oluştur
-     */
-    private function generate_products_report() {
-        $products = $this->data['products'] ?? [];
+/**
+ * Ürün raporu oluştur
+ */
+private function generate_products_report() {
+    $products = $this->data['products'] ?? [];
+    
+    if (empty($products)) {
+        $this->SetFont('Arial', '', 12);
+        $this->Cell(0, 10, __('Ürün bulunamadı.', 'wc-advanced-stock-manager'), 0, 1);
+        return;
+    }
+    
+    $this->Ln(5);
+    $this->SetFont('Arial', 'B', 14);
+    $this->Cell(0, 10, __('Ürün Stok Listesi', 'wc-advanced-stock-manager'), 0, 1);
+    
+    // Tablo başlıkları
+    $this->SetFillColor(230, 230, 230);
+    $this->SetFont('Arial', 'B', 8);
+    $this->Cell(70, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
+    $this->Cell(25, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+    $this->Cell(25, 8, __('Son 3 Ay', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+    $this->Cell(30, 8, __('Durum', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+    $this->Cell(20, 8, __('Önerilen', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+    $this->Cell(40, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
+    
+    // Tablo verileri
+    $this->SetFont('Arial', '', 8);
+    $fill = false;
+    
+    // Ürün sıralama anahtarları
+    $sortedProducts = [];
+    
+    // Ürünleri sırala
+    foreach ($products as $product) {
+        // Ana ürün adına göre grupla
+        $sortKey = isset($product['productType']) && $product['productType'] === 'variable' ? 
+            $product['name'] . '_0' :     // Ana ürün
+            ($product['parentProductName'] ?? $product['name']) . '_1_' . $product['name']; // Varyasyon
         
-        if (empty($products)) {
-            $this->SetFont('Arial', '', 12);
-            $this->Cell(0, 10, __('Ürün bulunamadı.', 'wc-advanced-stock-manager'), 0, 1);
-            return;
+        $sortedProducts[$sortKey] = $product;
+    }
+    
+    // Anahtara göre sırala
+    ksort($sortedProducts);
+    
+    foreach ($sortedProducts as $product) {
+        // Ürün adı için kontrol (uzunsa kısalt)
+        $product_name = $product['name'];
+        if (mb_strlen($product_name) > 35) {
+            $product_name = mb_substr($product_name, 0, 32) . '...';
         }
         
-        $this->Ln(5);
-        $this->SetFont('Arial', 'B', 14);
-        $this->Cell(0, 10, __('Ürün Stok Listesi', 'wc-advanced-stock-manager'), 0, 1);
+        // Ürün tipini kontrol et
+        $isVariable = isset($product['productType']) && $product['productType'] === 'variable';
+        $isVariation = isset($product['isVariation']) && $product['isVariation'] === true;
         
+        // Varyasyonlar için girintili gösterim
+        $padding = $isVariation ? 5 : 0;
+        
+        $this->Cell(70, 8, str_repeat(' ', $padding) . $product_name, 1, 0, 'L', $fill);
+        
+        // Stok durumuna göre renk ayarla
+        $stock_status = $product['stockStatus'];
+        $status_text = __('İyi', 'wc-advanced-stock-manager');
+        
+        switch ($stock_status) {
+            case 'critical':
+                $status_text = __('Kritik', 'wc-advanced-stock-manager');
+                $this->SetTextColor(255, 0, 0); // Kırmızı
+                break;
+            case 'low':
+                $status_text = __('Düşük', 'wc-advanced-stock-manager');
+                $this->SetTextColor(255, 128, 0); // Turuncu
+                break;
+            default:
+                $this->SetTextColor(0, 128, 0); // Yeşil
+        }
+        
+        // Stok miktarı gösterilirken, varyasyonlu ürünlerde (Toplam) etiketi göster
+        $stock_text = $product['currentStock'];
+        if ($isVariable) {
+            $stock_text .= ' ('.__('Toplam', 'wc-advanced-stock-manager').')';
+        }
+        
+        $this->Cell(25, 8, $stock_text, 1, 0, 'C', $fill);
+        $this->SetTextColor(0, 0, 0); // Normal renk
+        
+        $this->Cell(25, 8, $product['last3MonthsSales'], 1, 0, 'C', $fill);
+        
+        // Stok durumu
+        switch ($stock_status) {
+            case 'critical':
+                $this->SetTextColor(255, 0, 0); // Kırmızı
+                break;
+            case 'low':
+                $this->SetTextColor(255, 128, 0); // Turuncu
+                break;
+            default:
+                $this->SetTextColor(0, 128, 0); // Yeşil
+        }
+        
+        $this->Cell(30, 8, $status_text, 1, 0, 'C', $fill);
+        $this->SetTextColor(0, 0, 0); // Normal renk
+        
+        // Önerilen sipariş
+        if (isset($product['recommendedOrder']) && $product['recommendedOrder'] > 0) {
+            $this->SetTextColor(0, 0, 255); // Mavi
+            $this->Cell(20, 8, $product['recommendedOrder'], 1, 0, 'C', $fill);
+            $this->SetTextColor(0, 0, 0); // Normal renk
+        } else {
+            $this->Cell(20, 8, '-', 1, 0, 'C', $fill);
+        }
+        
+        $this->Cell(40, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
+        
+        $fill = !$fill;
+    }
+}
+
+/**
+ * Stok raporu oluştur
+ */
+private function generate_stock_report() {
+    $products = $this->data['products'] ?? [];
+    
+    // Ürünleri ürün tipine ve varyasyon ilişkilerine göre sırala
+    $sortedProducts = [];
+    
+    // Ürünleri sırala
+    foreach ($products as $product) {
+        // Ana ürün adına göre grupla
+        $sortKey = isset($product['productType']) && $product['productType'] === 'variable' ? 
+            $product['name'] . '_0' :     // Ana ürün
+            ($product['parentProductName'] ?? $product['name']) . '_1_' . $product['name']; // Varyasyon
+        
+        $sortedProducts[$sortKey] = $product;
+    }
+    
+    // Anahtara göre sırala
+    ksort($sortedProducts);
+    
+    // Düşük stoklu ürünleri filtrele
+    $low_stock_products = array_filter($sortedProducts, function($product) {
+        return $product['stockStatus'] === 'critical' || $product['stockStatus'] === 'low';
+    });
+    
+    // Sipariş edilecek ürünleri filtrele
+    $reorder_products = array_filter($sortedProducts, function($product) {
+        return isset($product['recommendedOrder']) && $product['recommendedOrder'] > 0;
+    });
+    
+    // Düşük stoklu ürünler
+    $this->Ln(5);
+    $this->SetFont('Arial', 'B', 14);
+    $this->Cell(0, 10, __('Düşük Stoklu Ürünler', 'wc-advanced-stock-manager'), 0, 1);
+    
+    if (empty($low_stock_products)) {
+        $this->SetFont('Arial', '', 10);
+        $this->Cell(0, 10, __('Düşük stoklu ürün bulunmamaktadır.', 'wc-advanced-stock-manager'), 0, 1);
+    } else {
         // Tablo başlıkları
         $this->SetFillColor(230, 230, 230);
         $this->SetFont('Arial', 'B', 8);
-        $this->Cell(60, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-        $this->Cell(20, 8, __('SKU', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-        $this->Cell(20, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-        $this->Cell(20, 8, __('Son 3 Ay', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-        $this->Cell(20, 8, __('Durum', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-        $this->Cell(20, 8, __('Önerilen', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-        $this->Cell(30, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
+        $this->Cell(70, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
+        $this->Cell(25, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+        $this->Cell(35, 8, __('Durum', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+        $this->Cell(40, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
         
         // Tablo verileri
         $this->SetFont('Arial', '', 8);
         $fill = false;
         
-        foreach ($products as $product) {
-            // Ürün adı için kontrol (uzunsa kısalt)
+        foreach ($low_stock_products as $product) {
+            // Ürün adı için kontrol
             $product_name = $product['name'];
-            if (mb_strlen($product_name) > 35) {
-                $product_name = mb_substr($product_name, 0, 32) . '...';
+            if (mb_strlen($product_name) > 40) {
+                $product_name = mb_substr($product_name, 0, 37) . '...';
             }
             
-            $this->Cell(60, 8, $product_name, 1, 0, 'L', $fill);
-            $this->Cell(20, 8, $product['sku'] ?? '-', 1, 0, 'L', $fill);
+            // Ürün tipini kontrol et
+            $isVariable = isset($product['productType']) && $product['productType'] === 'variable';
+            $isVariation = isset($product['isVariation']) && $product['isVariation'] === true;
+            
+            // Varyasyonlar için girintili gösterim
+            $padding = $isVariation ? 5 : 0;
+            
+            $this->Cell(70, 8, str_repeat(' ', $padding) . $product_name, 1, 0, 'L', $fill);
             
             // Stok durumuna göre renk ayarla
             $stock_status = $product['stockStatus'];
-            $status_text = __('İyi', 'wc-advanced-stock-manager');
+            $status_text = $stock_status === 'critical' ? __('Kritik', 'wc-advanced-stock-manager') : __('Düşük', 'wc-advanced-stock-manager');
             
-            switch ($stock_status) {
-                case 'critical':
-                    $status_text = __('Kritik', 'wc-advanced-stock-manager');
-                    $this->SetTextColor(255, 0, 0); // Kırmızı
-                    break;
-                case 'low':
-                    $status_text = __('Düşük', 'wc-advanced-stock-manager');
-                    $this->SetTextColor(255, 128, 0); // Turuncu
-                    break;
-                default:
-                    $this->SetTextColor(0, 128, 0); // Yeşil
+            // Stok miktarı gösterilirken, varyasyonlu ürünlerde (Toplam) etiketi göster
+            $stock_text = $product['currentStock'];
+            if ($isVariable) {
+                $stock_text .= ' ('.__('Toplam', 'wc-advanced-stock-manager').')';
             }
             
-            $this->Cell(20, 8, $product['currentStock'], 1, 0, 'C', $fill);
+            $this->SetTextColor($stock_status === 'critical' ? 255 : 255, $stock_status === 'critical' ? 0 : 128, 0);
+            $this->Cell(25, 8, $stock_text, 1, 0, 'C', $fill);
+            
+            $this->Cell(35, 8, $status_text, 1, 0, 'C', $fill);
             $this->SetTextColor(0, 0, 0); // Normal renk
             
-            $this->Cell(20, 8, $product['last3MonthsSales'], 1, 0, 'C', $fill);
-            
-            // Stok durumu
-            switch ($stock_status) {
-                case 'critical':
-                    $this->SetTextColor(255, 0, 0); // Kırmızı
-                    break;
-                case 'low':
-                    $this->SetTextColor(255, 128, 0); // Turuncu
-                    break;
-                default:
-                    $this->SetTextColor(0, 128, 0); // Yeşil
-            }
-            
-            $this->Cell(20, 8, $status_text, 1, 0, 'C', $fill);
-            $this->SetTextColor(0, 0, 0); // Normal renk
-            
-            // Önerilen sipariş
-            if ($product['recommendedOrder'] > 0) {
-                $this->SetTextColor(0, 0, 255); // Mavi
-                $this->Cell(20, 8, $product['recommendedOrder'], 1, 0, 'C', $fill);
-                $this->SetTextColor(0, 0, 0); // Normal renk
-            } else {
-                $this->Cell(20, 8, '-', 1, 0, 'C', $fill);
-            }
-            
-            $this->Cell(30, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
+            $this->Cell(40, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
             
             $fill = !$fill;
         }
     }
     
-    /**
-     * Stok raporu oluştur
-     */
-    private function generate_stock_report() {
-        $products = $this->data['products'] ?? [];
+    // Sipariş edilecek ürünler
+    $this->Ln(10);
+    $this->SetFont('Arial', 'B', 14);
+    $this->Cell(0, 10, __('Sipariş Edilecek Ürünler', 'wc-advanced-stock-manager'), 0, 1);
+    
+    if (empty($reorder_products)) {
+        $this->SetFont('Arial', '', 10);
+        $this->Cell(0, 10, __('Sipariş edilecek ürün bulunmamaktadır.', 'wc-advanced-stock-manager'), 0, 1);
+    } else {
+        // Tablo başlıkları
+        $this->SetFillColor(230, 230, 230);
+        $this->SetFont('Arial', 'B', 8);
+        $this->Cell(60, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
+        $this->Cell(20, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+        $this->Cell(25, 8, __('Son 3 Ay', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+        $this->Cell(25, 8, __('Önerilen', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
+        $this->Cell(40, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
         
-        // Düşük stoklu ürünleri filtrele
-        $low_stock_products = array_filter($products, function($product) {
-            return $product['stockStatus'] === 'critical' || $product['stockStatus'] === 'low';
-        });
+        // Tablo verileri
+        $this->SetFont('Arial', '', 8);
+        $fill = false;
         
-        // Sipariş edilecek ürünleri filtrele
-        $reorder_products = array_filter($products, function($product) {
-            return $product['recommendedOrder'] > 0;
-        });
-        
-        // Düşük stoklu ürünler
-        $this->Ln(5);
-        $this->SetFont('Arial', 'B', 14);
-        $this->Cell(0, 10, __('Düşük Stoklu Ürünler', 'wc-advanced-stock-manager'), 0, 1);
-        
-        if (empty($low_stock_products)) {
-            $this->SetFont('Arial', '', 10);
-            $this->Cell(0, 10, __('Düşük stoklu ürün bulunmamaktadır.', 'wc-advanced-stock-manager'), 0, 1);
-        } else {
-            // Tablo başlıkları
-            $this->SetFillColor(230, 230, 230);
-            $this->SetFont('Arial', 'B', 8);
-            $this->Cell(70, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-            $this->Cell(25, 8, __('SKU', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-            $this->Cell(25, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-            $this->Cell(30, 8, __('Durum', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-            $this->Cell(40, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
-            
-            // Tablo verileri
-            $this->SetFont('Arial', '', 8);
-            $fill = false;
-            
-            foreach ($low_stock_products as $product) {
-                // Ürün adı için kontrol
-                $product_name = $product['name'];
-                if (mb_strlen($product_name) > 40) {
-                    $product_name = mb_substr($product_name, 0, 37) . '...';
-                }
-                
-                $this->Cell(70, 8, $product_name, 1, 0, 'L', $fill);
-                $this->Cell(25, 8, $product['sku'] ?? '-', 1, 0, 'L', $fill);
-                
-                // Stok durumuna göre renk ayarla
-                $stock_status = $product['stockStatus'];
-                $status_text = __('İyi', 'wc-advanced-stock-manager');
-                
-                switch ($stock_status) {
-                    case 'critical':
-                        $status_text = __('Kritik', 'wc-advanced-stock-manager');
-                        $this->SetTextColor(255, 0, 0); // Kırmızı
-                        break;
-                    case 'low':
-                        $status_text = __('Düşük', 'wc-advanced-stock-manager');
-                        $this->SetTextColor(255, 128, 0); // Turuncu
-                        break;
-                }
-                
-                $this->Cell(25, 8, $product['currentStock'], 1, 0, 'C', $fill);
-                $this->Cell(30, 8, $status_text, 1, 0, 'C', $fill);
-                $this->SetTextColor(0, 0, 0); // Normal renk
-                
-                $this->Cell(40, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
-                
-                $fill = !$fill;
+        foreach ($reorder_products as $product) {
+            // Ürün adı için kontrol
+            $product_name = $product['name'];
+            if (mb_strlen($product_name) > 35) {
+                $product_name = mb_substr($product_name, 0, 32) . '...';
             }
-        }
-        
-        // Sipariş edilecek ürünler
-        $this->Ln(10);
-        $this->SetFont('Arial', 'B', 14);
-        $this->Cell(0, 10, __('Sipariş Edilecek Ürünler', 'wc-advanced-stock-manager'), 0, 1);
-        
-        if (empty($reorder_products)) {
-            $this->SetFont('Arial', '', 10);
-            $this->Cell(0, 10, __('Sipariş edilecek ürün bulunmamaktadır.', 'wc-advanced-stock-manager'), 0, 1);
-        } else {
-            // Tablo başlıkları
-            $this->SetFillColor(230, 230, 230);
-            $this->SetFont('Arial', 'B', 8);
-            $this->Cell(60, 8, __('Ürün Adı', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-            $this->Cell(20, 8, __('SKU', 'wc-advanced-stock-manager'), 1, 0, 'L', true);
-            $this->Cell(20, 8, __('Stok', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-            $this->Cell(25, 8, __('Son 3 Ay', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-            $this->Cell(25, 8, __('Önerilen', 'wc-advanced-stock-manager'), 1, 0, 'C', true);
-            $this->Cell(40, 8, __('Kategori', 'wc-advanced-stock-manager'), 1, 1, 'L', true);
             
-            // Tablo verileri
-            $this->SetFont('Arial', '', 8);
-            $fill = false;
+            // Ürün tipini kontrol et
+            $isVariable = isset($product['productType']) && $product['productType'] === 'variable';
+            $isVariation = isset($product['isVariation']) && $product['isVariation'] === true;
             
-            foreach ($reorder_products as $product) {
-                // Ürün adı için kontrol
-                $product_name = $product['name'];
-                if (mb_strlen($product_name) > 35) {
-                    $product_name = mb_substr($product_name, 0, 32) . '...';
-                }
-                
-                $this->Cell(60, 8, $product_name, 1, 0, 'L', $fill);
-                $this->Cell(20, 8, $product['sku'] ?? '-', 1, 0, 'L', $fill);
-                $this->Cell(20, 8, $product['currentStock'], 1, 0, 'C', $fill);
-                $this->Cell(25, 8, $product['last3MonthsSales'], 1, 0, 'C', $fill);
-                
-                // Önerilen sipariş
-                $this->SetTextColor(0, 0, 255); // Mavi
-                $this->Cell(25, 8, $product['recommendedOrder'], 1, 0, 'C', $fill);
-                $this->SetTextColor(0, 0, 0); // Normal renk
-                
-                $this->Cell(40, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
-                
-                $fill = !$fill;
+            // Varyasyonlar için girintili gösterim
+            $padding = $isVariation ? 5 : 0;
+            
+            $this->Cell(60, 8, str_repeat(' ', $padding) . $product_name, 1, 0, 'L', $fill);
+            
+            // Stok miktarı gösterilirken, varyasyonlu ürünlerde (Toplam) etiketi göster
+            $stock_text = $product['currentStock'];
+            if ($isVariable) {
+                $stock_text .= ' ('.__('Toplam', 'wc-advanced-stock-manager').')';
             }
+            
+            $this->Cell(20, 8, $stock_text, 1, 0, 'C', $fill);
+            $this->Cell(25, 8, $product['last3MonthsSales'], 1, 0, 'C', $fill);
+            
+            // Önerilen sipariş
+            $this->SetTextColor(0, 0, 255); // Mavi
+            $this->Cell(25, 8, $product['recommendedOrder'], 1, 0, 'C', $fill);
+            $this->SetTextColor(0, 0, 0); // Normal renk
+            
+            $this->Cell(40, 8, $product['category'] ?? __('Kategorisiz', 'wc-advanced-stock-manager'), 1, 1, 'L', $fill);
+            
+            $fill = !$fill;
         }
     }
+}
     
     /**
      * Satış trendi raporu oluştur

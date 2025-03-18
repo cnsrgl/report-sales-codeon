@@ -63,8 +63,6 @@ const App = () => {
         search: filters.search
       }).toString();
 
-      console.log('Ürünler için API URL:', productsUrl.toString());
-
       const productsResponse = await fetch(productsUrl, { headers });
 
       if (!productsResponse.ok) {
@@ -73,21 +71,22 @@ const App = () => {
 
       const productsData = await productsResponse.json();
       
-      // Log ürün verileri detayları
-      console.log(`${productsData.length} ürün yüklendi`);
-      
-      // Varyasyonlu ürünleri kontrol et
-      const variableProducts = productsData.filter(p => p.productType === 'variable');
-      console.log(`${variableProducts.length} varyasyonlu ürün bulundu`);
-      
-      let variationCount = 0;
-      variableProducts.forEach(p => {
-        if (p.variations && Array.isArray(p.variations)) {
-          variationCount += p.variations.length;
+      // API yanıtını debug et
+      if (productsData && productsData.length > 0) {
+        const variableProducts = productsData.filter(p => p.productType === 'variable');
+        console.log(`Toplam ürün: ${productsData.length}, Değişkenli ürün: ${variableProducts.length}`);
+        
+        if (variableProducts.length > 0) {
+          const sampleProduct = variableProducts[0];
+          console.log('Örnek değişkenli ürün:', sampleProduct);
+          console.log('Stok miktarı:', sampleProduct.currentStock);
+          
+          if (sampleProduct.variations && sampleProduct.variations.length > 0) {
+            console.log('Örnek varyasyon:', sampleProduct.variations[0]);
+            console.log('Varyasyon stoğu:', sampleProduct.variations[0].stock);
+          }
         }
-      });
-      
-      console.log(`Toplam ${variationCount} varyasyon bulundu`);
+      }
       
       setProducts(productsData);
       
@@ -237,9 +236,71 @@ const App = () => {
     }
   };
 
-  // Filtreleme mantığı - arama artık SKU üzerinde yapılmıyor
+  // Filtreleme mantığı - ayrı fonksiyon
   const filterProducts = (productsToFilter, currentFilters) => {
-    let result = [...productsToFilter];
+    let result = [];
+    
+    // Debug amaçlı sayaçlar
+    let countVariableProducts = 0;
+    let countVariations = 0;
+    
+    // Her ürünü dolaş ve varyasyonları ayrı ürünler olarak ekle
+    productsToFilter.forEach(product => {
+      // Ürünün türünü kontrol et
+      const isVariable = product.productType === 'variable';
+      
+      if (isVariable) {
+        countVariableProducts++;
+      }
+      
+      // Ana ürünü ekle
+      const productCopy = {...product};
+      
+      // Ana ürün için benzersiz sıralama kimliği
+      productCopy.groupId = `${product.id}`;
+      productCopy.sortOrder = 0; // Ana ürün her zaman ilk
+      
+      result.push(productCopy);
+      
+      // Varyasyonları kontrol et
+      const variations = product.variations || [];
+      
+      // Eğer ürün varyasyonlu ve varyasyonlar varsa, her bir varyasyonu ekle
+      if (isVariable && variations.length > 0) {
+        variations.forEach((variation, index) => {
+          countVariations++;
+          
+          // Varyasyonlar için yeni bir ürün nesnesi oluştur
+          const variationProduct = {
+            ...variation,
+            id: `${product.id}-var-${index}`, // Benzersiz ID oluştur
+            name: variation.title ? `${product.name} - ${variation.title}` : `${product.name} - Varyasyon ${index + 1}`,
+            category: product.category,
+            productType: 'variation', // Bu bir varyasyon
+            isVariation: true, // Bu bir varyasyon olduğunu işaretle
+            parentProductId: product.id, // Ana ürün ID'sini sakla
+            parentProductName: product.name, // Ana ürün adını sakla
+            stockStatus: variation.stockStatus || 'good',
+            currentStock: variation.stock || 0,
+            last3MonthsSales: variation.last3MonthsSales || 0,
+            recommendedOrder: variation.recommendedOrder || 0,
+            // Sıralama değerleri
+            groupId: `${product.id}`,  // Ana ürünle aynı grup
+            sortOrder: index + 1       // Ana üründen sonra
+          };
+          
+          result.push(variationProduct);
+        });
+      }
+    });
+    
+    // Debug amaçlı loglama
+    console.log('Filtreleme İstatistikleri:', {
+      toplamÜrün: productsToFilter.length,
+      varyasyonluÜrün: countVariableProducts,
+      toplamVaryasyon: countVariations,
+      sonuçListeÖğesi: result.length
+    });
     
     // Kategori filtreleme
     if (currentFilters.category && currentFilters.category !== 'all') {
@@ -251,7 +312,7 @@ const App = () => {
       result = result.filter(product => product.stockStatus === currentFilters.stockStatus);
     }
     
-    // Arama filtreleme - sadece ürün adında arama yap, SKU alanında arama yapma
+    // Arama filtreleme
     if (currentFilters.search && currentFilters.search.trim() !== '') {
       const searchTerm = currentFilters.search.toLowerCase().trim();
       result = result.filter(product => 
@@ -259,26 +320,29 @@ const App = () => {
       );
     }
     
-    // Sıralama
+    // BASİTLEŞTİRİLMİŞ SIRALAMA MANTİĞİ
     result.sort((a, b) => {
-      const aValue = a[currentFilters.sortBy] || '';
-      const bValue = b[currentFilters.sortBy] || '';
-      
-      // String değerleri için
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
+      // 1. Farklı ürünleri sırala (ilk normal sıralama)
+      if (a.groupId !== b.groupId) {
+        // Farklı ürünlerse normal sıralama kriterlerine göre sırala
+        const aValue = a[currentFilters.sortBy] || '';
+        const bValue = b[currentFilters.sortBy] || '';
+        
+        // String değerleri için
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return currentFilters.sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        // Sayısal değerler için
         return currentFilters.sortOrder === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
+          ? (aValue - bValue) 
+          : (bValue - aValue);
       }
       
-      // Sayısal değerler için
-      if (aValue < bValue) {
-        return currentFilters.sortOrder === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return currentFilters.sortOrder === 'asc' ? 1 : -1;
-      }
-      return 0;
+      // 2. Aynı ürünün ana ürün ve varyasyonlarını sırala
+      return a.sortOrder - b.sortOrder; // Daima ana ürün önce, sonra varyasyonlar
     });
     
     setFilteredProducts(result);

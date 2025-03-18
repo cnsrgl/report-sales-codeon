@@ -1,16 +1,15 @@
 <?php
 /**
- * Plugin Name: WooCommerce Gelişmiş Stok Yönetimi
- * Plugin URI: https://example.com/woocommerce-advanced-stock-manager
- * Description: WooCommerce için gelişmiş stok yönetimi, analizi ve sipariş planlaması eklentisi.
+ * Plugin Name: WooCommerce Advanced Stock Manager
+ * Plugin URI: https://woocommerce.com/products/advanced-stock-manager/
+ * Description: Gelişmiş stok yönetim özellikleri ile WooCommerce'i güçlendirir.
  * Version: 1.0.0
- * Author: Codeon
- * Author URI: https://codeon.ch
+ * Author: Your Name
+ * Author URI: https://yourwebsite.com
  * Text Domain: wc-advanced-stock-manager
  * Domain Path: /languages
- * Requires at least: 5.7
- * Requires PHP: 7.3
- * WC requires at least: 5.0
+ * WC requires at least: 3.0.0
+ * WC tested up to: 7.1.0
  */
 
 // Doğrudan erişimi engelle
@@ -18,701 +17,453 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-/**
- * Eklenti sabitlerini tanımla
- */
+// Plugin sabitleri
 define('WASM_VERSION', '1.0.0');
 define('WASM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WASM_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
+// Gerekli dosyaları dahil et
+require_once WASM_PLUGIN_DIR . 'includes/class-wasm-admin.php';
+require_once WASM_PLUGIN_DIR . 'includes/class-wasm-api.php';
+
+// Plugin aktif edildiğinde
+register_activation_hook(__FILE__, 'wasm_activate');
+
+// Plugin deaktif edildiğinde
+register_deactivation_hook(__FILE__, 'wasm_deactivate');
+
 /**
- * WooCommerce'in yüklü olup olmadığını kontrol et
+ * Plugin aktivasyon işlemi
  */
-function wasm_check_woocommerce_active() {
-    if (!class_exists('WooCommerce')) {
-        add_action('admin_notices', 'wasm_woocommerce_missing_notice');
-        return false;
-    }
-    return true;
+function wasm_activate() {
+    // Varsayılan ayarları ekle
+    add_option('wasm_settings', array(
+        'critical_threshold' => 5,
+        'low_threshold' => 15,
+        'reorder_threshold' => 1.5,
+        'stock_period' => 2
+    ));
+
+    // Diğer aktivasyon işlemleri
+    flush_rewrite_rules();
 }
 
 /**
- * WooCommerce eksik uyarısı
+ * Plugin deaktivasyon işlemi
  */
-function wasm_woocommerce_missing_notice() {
-    ?>
-    <div class="notice notice-error">
-        <p><?php esc_html_e('WooCommerce Gelişmiş Stok Yönetimi eklentisi için WooCommerce eklentisinin yüklü ve aktif olması gerekir.', 'wc-advanced-stock-manager'); ?></p>
-    </div>
-    <?php
+function wasm_deactivate() {
+    // Temizleme işlemleri
+    flush_rewrite_rules();
 }
 
 /**
- * Ana sınıfı yükle
+ * Plugin başlatma işlemi
  */
-function wasm_load_classes() {
-    require_once WASM_PLUGIN_DIR . 'includes/class-wasm-admin.php';
-    require_once WASM_PLUGIN_DIR . 'includes/class-wasm-api.php';
-    require_once WASM_PLUGIN_DIR . 'includes/class-wasm-fpdf.php';
+function wasm_init() {
+    // Admin sınıfını başlat
+    global $wasm_admin;
+    $wasm_admin = new WASM_Admin();
+    
+    // Çeviriler
+    load_plugin_textdomain('wc-advanced-stock-manager', false, dirname(WASM_PLUGIN_BASENAME) . '/languages');
 
+    // Admin sayfaları ekle
+    add_action('admin_menu', 'wasm_add_admin_menu');
+    
+    // Script ve stilleri ekle
+    add_action('admin_enqueue_scripts', 'wasm_admin_scripts');
+    
+    // Ayarlar sayfası
+    add_action('admin_init', 'wasm_register_settings');
 }
+add_action('plugins_loaded', 'wasm_init');
 
 /**
- * Admin menü öğeleri ekle
+ * Admin menü sayfalarını ekle
  */
 function wasm_add_admin_menu() {
-    if (!wasm_check_woocommerce_active()) {
-        return;
+    global $wasm_admin;
+    
+    // Ana menü
+    add_menu_page(
+        __('Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'),
+        __('Stok Yönetimi', 'wc-advanced-stock-manager'),
+        'manage_woocommerce',
+        'wasm-dashboard',
+        array($wasm_admin, 'render_admin_page'),
+        'dashicons-chart-area',
+        56
+    );
+    
+    // Alt menü: Ayarlar
+    add_submenu_page(
+        'wasm-dashboard',
+        __('Stok Yönetimi Ayarları', 'wc-advanced-stock-manager'),
+        __('Ayarlar', 'wc-advanced-stock-manager'),
+        'manage_woocommerce',
+        'wasm-settings',
+        array($wasm_admin, 'render_settings_page')
+    );
+}
+
+/**
+ * Admin script ve stilleri kaydet
+ */
+function wasm_admin_scripts($hook) {
+    // Sadece plugin sayfalarında yükle
+    if (strpos($hook, 'wasm-') !== false) {
+        // React uygulaması
+        wp_enqueue_style('wasm-styles', WASM_PLUGIN_URL . 'assets/css/app.css', array(), WASM_VERSION);
+        wp_enqueue_script('wasm-app', WASM_PLUGIN_URL . 'assets/js/app.js', array('wp-api'), WASM_VERSION, true);
+        
+        // API URL ve nonce gibi ayarları JS'e gönder
+        wp_localize_script('wasm-app', 'wasmSettings', array(
+            'apiUrl' => rest_url('wc-advanced-stock-manager/v1'),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'siteUrl' => get_admin_url(),
+            'currencySymbol' => get_woocommerce_currency_symbol(),
+            'currencyCode' => get_woocommerce_currency(),
+            'locale' => get_locale(),
+            'translations' => array(
+                'title' => __('WooCommerce Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'),
+                'subtitle' => __('Stok durumunuzu izleyin, satış trendlerini analiz edin ve sipariş planlaması yapın.', 'wc-advanced-stock-manager'),
+                'loading' => __('Yükleniyor...', 'wc-advanced-stock-manager'),
+                'tryAgain' => __('Tekrar Dene', 'wc-advanced-stock-manager')
+                // Diğer çeviriler...
+            ),
+            'settings' => get_option('wasm_settings')
+        ));
     }
-
-    add_submenu_page(
-        'woocommerce',
-        __('Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'),
-        __('Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'),
-        'manage_woocommerce',
-        'wc-advanced-stock-manager',
-        'wasm_render_admin_page'
-    );
-
-    add_submenu_page(
-        'woocommerce',
-        __('Stok Yönetimi Ayarları', 'wc-advanced-stock-manager'),
-        __('Stok Yönetimi Ayarları', 'wc-advanced-stock-manager'),
-        'manage_woocommerce',
-        'wc-advanced-stock-manager-settings',
-        'wasm_render_settings_page'
-    );
-}
-add_action('admin_menu', 'wasm_add_admin_menu');
-
-/**
- * Admin sayfasını oluştur
- */
-function wasm_render_admin_page() {
-    ?>
-    <div class="wrap">
-        <div id="wasm-app"></div>
-    </div>
-    <?php
 }
 
 /**
- * Ayarlar sayfasını oluştur
- */
-function wasm_render_settings_page() {
-    ?>
-    <div class="wrap">
-        <h1><?php esc_html_e('WooCommerce Gelişmiş Stok Yönetimi Ayarları', 'wc-advanced-stock-manager'); ?></h1>
-        <form method="post" action="options.php">
-            <?php
-            settings_fields('wasm_settings_group');
-            do_settings_sections('wasm_settings');
-            submit_button();
-            ?>
-        </form>
-    </div>
-    <?php
-}
-
-/**
- * Settings API kurulumu
+ * Ayarları kaydet
  */
 function wasm_register_settings() {
     register_setting('wasm_settings_group', 'wasm_settings');
-
+    
     add_settings_section(
-        'wasm_general_section',
+        'wasm_main_section',
         __('Genel Ayarlar', 'wc-advanced-stock-manager'),
-        'wasm_general_section_callback',
+        'wasm_settings_section_callback',
         'wasm_settings'
     );
-
+    
+    // Kritik eşik değeri
+    add_settings_field(
+        'wasm_critical_threshold',
+        __('Kritik Stok Eşiği', 'wc-advanced-stock-manager'),
+        'wasm_critical_threshold_callback',
+        'wasm_settings',
+        'wasm_main_section'
+    );
+    
+    // Düşük eşik değeri
+    add_settings_field(
+        'wasm_low_threshold',
+        __('Düşük Stok Eşiği', 'wc-advanced-stock-manager'),
+        'wasm_low_threshold_callback',
+        'wasm_settings',
+        'wasm_main_section'
+    );
+    
+    // Sipariş eşik değeri
     add_settings_field(
         'wasm_reorder_threshold',
-        __('Sipariş Eşiği Hesaplama Faktörü', 'wc-advanced-stock-manager'),
+        __('Sipariş Eşiği (Ay)', 'wc-advanced-stock-manager'),
         'wasm_reorder_threshold_callback',
         'wasm_settings',
-        'wasm_general_section'
+        'wasm_main_section'
     );
-
+    
+    // Stok dönem değeri
     add_settings_field(
         'wasm_stock_period',
-        __('Stok Hesaplama Periyodu (Ay)', 'wc-advanced-stock-manager'),
+        __('Stok Dönem Değeri (Ay)', 'wc-advanced-stock-manager'),
         'wasm_stock_period_callback',
         'wasm_settings',
-        'wasm_general_section'
+        'wasm_main_section'
     );
 }
-add_action('admin_init', 'wasm_register_settings');
 
 /**
- * Genel bölüm açıklaması
+ * Ayarlar bölümü geri çağırma
  */
-function wasm_general_section_callback() {
-    echo '<p>' . esc_html__('Stok yönetimi ve sipariş önerilerini özelleştirme ayarları.', 'wc-advanced-stock-manager') . '</p>';
+function wasm_settings_section_callback() {
+    echo '<p>' . __('Stok yönetimi için genel ayarlar.', 'wc-advanced-stock-manager') . '</p>';
 }
 
 /**
- * Sipariş eşiği ayarı
+ * Kritik eşik değeri geri çağırma
+ */
+function wasm_critical_threshold_callback() {
+    $options = get_option('wasm_settings');
+    $value = isset($options['critical_threshold']) ? $options['critical_threshold'] : 5;
+    
+    echo '<input type="number" id="wasm_critical_threshold" name="wasm_settings[critical_threshold]" value="' . esc_attr($value) . '" min="0" /> ' .
+         '<p class="description">' . __('Bu değerin altındaki stoklar "Kritik" olarak işaretlenir.', 'wc-advanced-stock-manager') . '</p>';
+}
+
+/**
+ * Düşük eşik değeri geri çağırma
+ */
+function wasm_low_threshold_callback() {
+    $options = get_option('wasm_settings');
+    $value = isset($options['low_threshold']) ? $options['low_threshold'] : 15;
+    
+    echo '<input type="number" id="wasm_low_threshold" name="wasm_settings[low_threshold]" value="' . esc_attr($value) . '" min="0" /> ' .
+         '<p class="description">' . __('Bu değerin altındaki stoklar "Düşük" olarak işaretlenir.', 'wc-advanced-stock-manager') . '</p>';
+}
+
+/**
+ * Sipariş eşik değeri geri çağırma
  */
 function wasm_reorder_threshold_callback() {
-    $options = get_option('wasm_settings', array(
-        'reorder_threshold' => 1.5,
-        'stock_period' => 2
-    ));
+    $options = get_option('wasm_settings');
     $value = isset($options['reorder_threshold']) ? $options['reorder_threshold'] : 1.5;
-    ?>
-    <input type="number" id="wasm_reorder_threshold" name="wasm_settings[reorder_threshold]" value="<?php echo esc_attr($value); ?>" min="0.1" max="5" step="0.1" />
-    <p class="description">
-        <?php esc_html_e('Aylık satışların kaç katı stok tutmak istediğinizi belirler. Örneğin 2, iki aylık satışa yetecek stok tutmayı hedefler.', 'wc-advanced-stock-manager'); ?>
-    </p>
-    <?php
+    
+    echo '<input type="number" id="wasm_reorder_threshold" name="wasm_settings[reorder_threshold]" value="' . esc_attr($value) . '" min="0" step="0.1" /> ' .
+         '<p class="description">' . __('Stok yeterlilik süresi bu değerin altına düştüğünde sipariş önerilecektir.', 'wc-advanced-stock-manager') . '</p>';
 }
 
 /**
- * Stok periyodu ayarı
+ * Stok dönem değeri geri çağırma
  */
 function wasm_stock_period_callback() {
-    $options = get_option('wasm_settings', array(
-        'reorder_threshold' => 1.5,
-        'stock_period' => 2
-    ));
+    $options = get_option('wasm_settings');
     $value = isset($options['stock_period']) ? $options['stock_period'] : 2;
-    ?>
-    <input type="number" id="wasm_stock_period" name="wasm_settings[stock_period]" value="<?php echo esc_attr($value); ?>" min="1" max="12" step="1" />
-    <p class="description">
-        <?php esc_html_e('Satış analizini kaç aylık veriye dayandırmak istediğinizi belirler. Örneğin 3, son 3 ayın satış verilerini kullanır.', 'wc-advanced-stock-manager'); ?>
-    </p>
-    <?php
+    
+    echo '<input type="number" id="wasm_stock_period" name="wasm_settings[stock_period]" value="' . esc_attr($value) . '" min="1" step="0.5" /> ' .
+         '<p class="description">' . __('Önerilen stok miktarı kaç aylık satışı kapsamalı.', 'wc-advanced-stock-manager') . '</p>';
 }
 
 /**
- * Admin scriptleri ve stilleri
- */
-function wasm_enqueue_admin_scripts($hook) {
-    if ('woocommerce_page_wc-advanced-stock-manager' !== $hook) {
-        return;
-    }
-
-    // Sadece CSS ve JS dosyalarımızı yükleyelim, harici kütüphaneleri yüklemeyelim
-    wp_enqueue_style('wasm-styles', WASM_PLUGIN_URL . 'assets/css/app.css', array(), WASM_VERSION);
-    wp_enqueue_script('wasm-app', WASM_PLUGIN_URL . 'assets/js/app.js', array('wp-api-fetch'), WASM_VERSION, true);
-
-    // Script verilerini lokalize et
-    wp_localize_script('wasm-app', 'wasmSettings', array(
-        'apiUrl' => rest_url('wc-advanced-stock-manager/v1'),
-        'nonce' => wp_create_nonce('wp_rest'),
-        'currencySymbol' => get_woocommerce_currency_symbol(),
-        'currencyCode' => get_woocommerce_currency(),
-        'locale' => get_locale(),
-        'siteUrl' => site_url(),
-        'settings' => get_option('wasm_settings', array(
-            'reorder_threshold' => 1.5,
-            'stock_period' => 2
-        )),
-        'translations' => array(
-            'title' => __('WooCommerce Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'),
-            'subtitle' => __('Stok durumunuzu izleyin, satış trendlerini analiz edin ve sipariş planlaması yapın.', 'wc-advanced-stock-manager'),
-            'totalProducts' => __('Toplam Ürün', 'wc-advanced-stock-manager'),
-            'lowStock' => __('Düşük Stok', 'wc-advanced-stock-manager'),
-            'reorderNeeded' => __('Sipariş Edilecek', 'wc-advanced-stock-manager'),
-            'stockValue' => __('Stok Değeri', 'wc-advanced-stock-manager'),
-            'salesAndStockTrend' => __('Satış ve Stok Trendi', 'wc-advanced-stock-manager'),
-            'filters' => __('Filtreler', 'wc-advanced-stock-manager'),
-            'clearFilters' => __('Filtreleri Temizle', 'wc-advanced-stock-manager'),
-            'dateRange' => __('Tarih Aralığı', 'wc-advanced-stock-manager'),
-            'category' => __('Kategori', 'wc-advanced-stock-manager'),
-            'allCategories' => __('Tüm Kategoriler', 'wc-advanced-stock-manager'),
-            'stockStatus' => __('Stok Durumu', 'wc-advanced-stock-manager'),
-            'all' => __('Tümü', 'wc-advanced-stock-manager'),
-            'criticalStock' => __('Kritik Stok', 'wc-advanced-stock-manager'),
-            'search' => __('Arama', 'wc-advanced-stock-manager'),
-            'searchPlaceholder' => __('Ürün adı veya SKU ile ara...', 'wc-advanced-stock-manager'),
-            'categoryDistribution' => __('Kategori Dağılımı', 'wc-advanced-stock-manager'),
-            'productStockList' => __('Ürün Stok Listesi', 'wc-advanced-stock-manager'),
-            'showingProducts' => __('ürün gösteriliyor', 'wc-advanced-stock-manager'),
-            'productName' => __('Ürün Adı', 'wc-advanced-stock-manager'),
-            'sku' => __('SKU', 'wc-advanced-stock-manager'),
-            'currentStock' => __('Mevcut Stok', 'wc-advanced-stock-manager'),
-            'sales3Months' => __('Son 3 Ay Satış', 'wc-advanced-stock-manager'),
-            'stockStatus' => __('Stok Durumu', 'wc-advanced-stock-manager'),
-            'recommendedOrder' => __('Önerilen Sipariş', 'wc-advanced-stock-manager'),
-            'critical' => __('Kritik', 'wc-advanced-stock-manager'),
-            'low' => __('Düşük', 'wc-advanced-stock-manager'),
-            'good' => __('İyi', 'wc-advanced-stock-manager'),
-            'noProductsFound' => __('Filtrelere uygun ürün bulunamadı.', 'wc-advanced-stock-manager'),
-            'totalSales' => __('Toplam Satış', 'wc-advanced-stock-manager'),
-            'averageStock' => __('Ortalama Stok', 'wc-advanced-stock-manager'),
-            'loading' => __('Yükleniyor...', 'wc-advanced-stock-manager'),
-            'tryAgain' => __('Tekrar Dene', 'wc-advanced-stock-manager'),
-            'reports' => __('Raporlar', 'wc-advanced-stock-manager'),
-            'generateReport' => __('Rapor Oluştur', 'wc-advanced-stock-manager'),
-            'reportType' => __('Rapor Türü', 'wc-advanced-stock-manager'),
-            'summaryReport' => __('Özet Rapor', 'wc-advanced-stock-manager'),
-            'productReport' => __('Ürün Raporu', 'wc-advanced-stock-manager'),
-            'stockReport' => __('Stok Raporu', 'wc-advanced-stock-manager'),
-            'salesReport' => __('Satış Raporu', 'wc-advanced-stock-manager'),
-            'reportDesc' => __('PDF formatında rapor oluşturmak için bir rapor türü seçin ve "Rapor Oluştur" düğmesine tıklayın.', 'wc-advanced-stock-manager'),
-            'generating' => __('Rapor oluşturuluyor...', 'wc-advanced-stock-manager'),
-            'errorGenerating' => __('Rapor oluşturulurken bir hata oluştu:', 'wc-advanced-stock-manager'),
-            'downloadReport' => __('Raporu İndir', 'wc-advanced-stock-manager'),
-            'reportReady' => __('Rapor hazır', 'wc-advanced-stock-manager'),
-        )
-    ));
-}
-add_action('admin_enqueue_scripts', 'wasm_enqueue_admin_scripts');
-
-/**
- * REST API route'larını kaydet
- */
-function wasm_register_rest_routes() {
-    register_rest_route('wc-advanced-stock-manager/v1', '/products', array(
-        'methods' => 'GET',
-        'callback' => 'wasm_api_get_products',
-        'permission_callback' => function() {
-            return current_user_can('manage_woocommerce');
-        }
-    ));
-
-    register_rest_route('wc-advanced-stock-manager/v1', '/sales-trend', array(
-        'methods' => 'GET',
-        'callback' => 'wasm_api_get_sales_trend',
-        'permission_callback' => function() {
-            return current_user_can('manage_woocommerce');
-        }
-    ));
-
-    register_rest_route('wc-advanced-stock-manager/v1', '/categories', array(
-        'methods' => 'GET',
-        'callback' => 'wasm_api_get_categories',
-        'permission_callback' => function() {
-            return current_user_can('manage_woocommerce');
-        }
-    ));
-
-    register_rest_route('wc-advanced-stock-manager/v1', '/summary', array(
-        'methods' => 'GET',
-        'callback' => 'wasm_api_get_summary',
-        'permission_callback' => function() {
-            return current_user_can('manage_woocommerce');
-        }
-    ));
-}
-add_action('rest_api_init', 'wasm_register_rest_routes');
-
-/**
- * API: Ürünleri getir - Varyasyon desteği ile, SKU'yu kaldırıp satış ve önerilen sipariş verilerini düzelttim
- */
-
- /**
- * API: Ürünleri getir - Varyasyon satış ve sipariş miktarı desteği ile
- * 
- * DÜZELTİLMİŞ VERSİYON - SKU sütunu kaldırıldı ve varyasyon listeleme problemi çözüldü
+ * API: Ürünleri getir
+ *
+ * @param WP_REST_Request $request API isteği
+ * @return array Ürün verileri dizisi
  */
 function wasm_api_get_products($request) {
-    global $wpdb;
+    // Parametreleri al
+    $params = $request->get_params();
+    $start_date = isset($params['start_date']) ? sanitize_text_field($params['start_date']) : '';
+    $end_date = isset($params['end_date']) ? sanitize_text_field($params['end_date']) : '';
+    $category = isset($params['category']) ? sanitize_text_field($params['category']) : '';
+    $stock_status = isset($params['stock_status']) ? sanitize_text_field($params['stock_status']) : '';
+    $search = isset($params['search']) ? sanitize_text_field($params['search']) : '';
     
-    $start_date = $request->get_param('start_date');
-    $end_date = $request->get_param('end_date');
-    $category = $request->get_param('category');
-    $stock_status = $request->get_param('stock_status');
-    $search = $request->get_param('search');
+    // Ürünleri sorgulama argümanları
+    $args = array(
+        'post_type' => 'product',
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+    );
     
-    // Varsayılan tarih aralığı: son 3 ay
-    if (empty($start_date)) {
-        $start_date = date('Y-m-d', strtotime('-3 months'));
+    // Kategori filtresi
+    if (!empty($category)) {
+        $args['tax_query'] = array(
+            array(
+                'taxonomy' => 'product_cat',
+                'field' => 'name',
+                'terms' => $category,
+            ),
+        );
     }
     
-    if (empty($end_date)) {
-        $end_date = date('Y-m-d');
+    // Arama filtresi
+    if (!empty($search)) {
+        $args['s'] = $search;
     }
     
-    // Ayarlardan yeniden sipariş eşiğini al
-    $settings = get_option('wasm_settings', array(
-        'reorder_threshold' => 1.5,
-        'stock_period' => 2
-    ));
+    // Sorguyu çalıştır ve ürün ID'lerini al
+    $query = new WP_Query($args);
+    $product_ids = $query->posts;
     
-    // Debug için
-    error_log('WASM API: Ürünler sorgulanıyor - Başlangıç tarihi: ' . $start_date . ', Bitiş tarihi: ' . $end_date);
+    // Ürün verilerini topla
+    $products = array();
     
-    // Tüm ürünleri al
-    $products_query = "
-        SELECT 
-            p.ID as id,
-            p.post_title as name,
-            p.post_date as created_date,
-            pm_sku.meta_value as sku,
-            pm_price.meta_value as price,
-            pm_stock.meta_value as stock,
-            pm_threshold.meta_value as reorder_point,
-            pm_type.meta_value as product_type,
-            GROUP_CONCAT(DISTINCT terms.name SEPARATOR ', ') as category_names
-        FROM {$wpdb->posts} p
-        LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
-        LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
-        LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
-        LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
-        LEFT JOIN {$wpdb->postmeta} pm_type ON p.ID = pm_type.post_id AND pm_type.meta_key = '_product_type'
-        LEFT JOIN {$wpdb->term_relationships} term_rel ON p.ID = term_rel.object_id
-        LEFT JOIN {$wpdb->term_taxonomy} tax ON term_rel.term_taxonomy_id = tax.term_taxonomy_id AND tax.taxonomy = 'product_cat'
-        LEFT JOIN {$wpdb->terms} terms ON tax.term_id = terms.term_id
-        WHERE p.post_type = 'product' AND p.post_status = 'publish'
-        GROUP BY p.ID
-    ";
-    
-    $products = $wpdb->get_results($products_query, ARRAY_A);
-    
-    // Debug için
-    error_log('WASM Products Count: ' . count($products));
-    
-    // Varyasyonlu ürünleri ve varyasyonlarını getir
-    $variable_products = array_filter($products, function($product) {
-        return isset($product['product_type']) && $product['product_type'] === 'variable';
-    });
-    
-    $variable_products_by_id = array();
-    foreach ($variable_products as $vp) {
-        $variable_products_by_id[$vp['id']] = $vp;
-    }
-    
-    // Varyasyonlu ürünler için varyasyon stoklarını getir
-    $variations_by_id = array();
-    
-    if (!empty($variable_products)) {
-        $variable_product_ids = array_column($variable_products, 'id');
+    foreach ($product_ids as $product_id) {
+        $wc_product = wc_get_product($product_id);
         
-        // Varyasyonları getir
-        $variations_query = "
-            SELECT 
-                p.ID as variation_id,
-                p.post_parent as product_id,
-                pm_stock.meta_value as stock,
-                pm_sku.meta_value as sku,
-                pm_title.meta_value as variation_title,
-                pm_threshold.meta_value as reorder_point,
-                pm_price.meta_value as price
-            FROM {$wpdb->posts} p
-            LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
-            LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
-            LEFT JOIN {$wpdb->postmeta} pm_title ON p.ID = pm_title.post_id AND pm_title.meta_key = '_variation_description'
-            LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
-            LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
-            WHERE p.post_type = 'product_variation' 
-            AND p.post_status = 'publish'
-            AND p.post_parent IN (" . implode(',', $variable_product_ids) . ")
-        ";
+        if (!$wc_product) {
+            continue;
+        }
         
-        $variations = $wpdb->get_results($variations_query, ARRAY_A);
+        // Ürün tipini belirle
+        $product_type = $wc_product->get_type();
         
-        error_log('WASM Variations Count: ' . count($variations));
+        // DOĞRUDAN DEBUG: Ürün tipini logla
+        error_log("Ürün ID: $product_id, Tip: $product_type, Adı: " . $wc_product->get_name());
         
-        // Varyasyonların özellik bilgilerini topla
-        foreach ($variations as $index => $variation) {
-            $variation_id = $variation['variation_id'];
-            $product_id = $variation['product_id'];
+        // Varyasyonlu ürünlerin stok hesaplaması için
+        $stock_quantity = 0;
+        
+        if ($product_type === 'variable') {
+            // Varyasyonları doğrudan al
+            $variation_ids = $wc_product->get_children();
+            $total_stock = 0;
             
-            // Varyasyon özelliklerini (attributes) topla
-            $attribute_query = "
-                SELECT meta_key, meta_value 
-                FROM {$wpdb->postmeta} 
-                WHERE post_id = %d 
-                AND meta_key LIKE 'attribute_%%'
-            ";
+            // Her varyasyonun stok değerini topla
+            foreach ($variation_ids as $variation_id) {
+                $variation = wc_get_product($variation_id);
+                if ($variation) {
+                    $variation_stock = $variation->get_stock_quantity();
+                    if ($variation_stock !== null && $variation_stock !== false) {
+                        $total_stock += (int)$variation_stock;
+                        // DEBUG: Her varyasyon için stok değerini logla
+                        error_log("  Varyasyon ID: $variation_id, Stok: $variation_stock");
+                    }
+                }
+            }
             
-            $attributes = $wpdb->get_results($wpdb->prepare($attribute_query, $variation_id), ARRAY_A);
+            // Ana ürünün stoku = varyasyonların toplamı
+            $stock_quantity = $total_stock;
             
-            $attribute_labels = array();
-            foreach ($attributes as $attr) {
-                $attr_name = str_replace('attribute_', '', $attr['meta_key']);
-                $attr_value = $attr['meta_value'];
+            // DEBUG: Toplam stoğu logla
+            error_log("  Toplam Varyasyon Stoğu: $stock_quantity");
+        } else {
+            // Basit ürün için normal stok değerini al
+            $stock_quantity = $wc_product->get_stock_quantity();
+            $stock_quantity = ($stock_quantity !== null && $stock_quantity !== false) ? (int)$stock_quantity : 0;
+        }
+        
+        // Stok durumunu belirle
+        $stock_status_value = wasm_get_stock_status($stock_quantity);
+        
+        // Eğer stok durum filtresi varsa ve uyuşmuyorsa atla
+        if (!empty($stock_status) && $stock_status_value != $stock_status) {
+            continue;
+        }
+        
+        // Tarih aralığı için satış verilerini al
+        $last_3_months_sales = wasm_get_product_sales_in_period($product_id, $start_date, $end_date);
+        
+        // Önerilen sipariş miktarını hesapla
+        $recommended_order = wasm_calculate_recommended_order($product_id, $stock_quantity, $last_3_months_sales);
+        
+        // Kategori bilgisini al
+        $categories = get_the_terms($product_id, 'product_cat');
+        $category_name = '';
+        
+        if ($categories && !is_wp_error($categories)) {
+            $category_name = $categories[0]->name;
+        }
+        
+        // Ürün temel bilgilerini oluştur
+        $product_data = array(
+            'id' => $product_id,
+            'name' => $wc_product->get_name(),
+            'sku' => $wc_product->get_sku(),
+            'currentStock' => $stock_quantity,
+            'stockStatus' => $stock_status_value,
+            'last3MonthsSales' => $last_3_months_sales,
+            'recommendedOrder' => $recommended_order,
+            'category' => $category_name,
+            'productType' => $product_type // Ürün tipini ekle: simple, variable, vb.
+        );
+        
+        // Eğer ürün varyasyonlu ise varyasyonları ekle
+        if ($product_type === 'variable') {
+            // Ürün varyasyonlarını al
+            $variations = $wc_product->get_available_variations();
+            $product_data['variations'] = array();
+            
+            foreach ($variations as $variation) {
+                $variation_id = $variation['variation_id'];
+                $variation_product = wc_get_product($variation_id);
                 
-                // Taksonomi ise gerçek değeri al
-                if (taxonomy_exists($attr_name)) {
-                    $term = get_term_by('slug', $attr_value, $attr_name);
+                if (!$variation_product) {
+                    continue;
+                }
+                
+                // Varyasyon stok miktarını al
+                $variation_stock = $variation_product->get_stock_quantity();
+                $variation_stock = ($variation_stock !== null && $variation_stock !== false) ? (int)$variation_stock : 0;
+                
+                // Varyasyon stok durumunu belirle
+                $variation_stock_status = wasm_get_stock_status($variation_stock);
+                
+                // Varyasyon satış verilerini al
+                $variation_sales = wasm_get_product_sales_in_period($variation_id, $start_date, $end_date);
+                
+                // Varyasyon için önerilen sipariş miktarını hesapla
+                $variation_recommended_order = wasm_calculate_recommended_order($variation_id, $variation_stock, $variation_sales);
+                
+                // Varyasyon özelliklerini hazırla
+                $attributes = array();
+                foreach ($variation['attributes'] as $attr_key => $attr_value) {
+                    $taxonomy = str_replace('attribute_', '', $attr_key);
+                    $term = get_term_by('slug', $attr_value, $taxonomy);
+                    
                     if ($term && !is_wp_error($term)) {
-                        $attr_value = $term->name;
+                        $attributes[] = $term->name;
+                    } else {
+                        $attributes[] = $attr_value; // Özel nitelik değeri
                     }
                 }
                 
-                // Özellik adını düzgün biçimlendir
-                $attr_name = wc_attribute_label($attr_name);
-                
-                $attribute_labels[] = "{$attr_value}";
-            }
-            
-            $variations[$index]['attributes'] = $attribute_labels;
-            
-            // Varyasyon açıklaması yoksa özellikleri kullan
-            if (empty($variation['variation_title']) && !empty($attribute_labels)) {
-                $variations[$index]['variation_title'] = implode(', ', $attribute_labels);
-            }
-            
-            // ID'ye göre varyasyonları kaydet
-            $variations_by_id[$variation_id] = $variations[$index];
-        }
-    }
-    
-    // Tüm ürünlerin (basit ve varyasyonlu) satış verilerini getir
-    $all_product_ids = array_column($products, 'id');
-    $sales_data = array();
-    
-    // Son 3 aylık satış verilerini getir
-    $three_month_query = "
-        SELECT 
-            oi_meta.meta_value as product_id,
-            oi_var.meta_value as variation_id,
-            SUM(oi_qty.meta_value) as quantity
-        FROM {$wpdb->prefix}woocommerce_order_items oi
-        JOIN {$wpdb->posts} o ON oi.order_id = o.ID
-        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_meta ON oi.order_item_id = oi_meta.order_item_id AND oi_meta.meta_key = '_product_id'
-        LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_var ON oi.order_item_id = oi_var.order_item_id AND oi_var.meta_key = '_variation_id'
-        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
-        WHERE o.post_type = 'shop_order'
-        AND o.post_status IN ('wc-completed', 'wc-processing')
-        AND o.post_date BETWEEN %s AND %s
-        GROUP BY oi_meta.meta_value, oi_var.meta_value
-    ";
-    
-    $three_months_ago = date('Y-m-d', strtotime('-3 months'));
-    $three_month_sales = $wpdb->get_results($wpdb->prepare($three_month_query, $three_months_ago . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
-    
-    error_log('WASM 3-Month Sales Query: ' . $wpdb->last_query);
-    error_log('WASM 3-Month Sales Count: ' . count($three_month_sales));
-    
-    // Son 1 aylık satış verilerini getir
-    $one_month_query = "
-        SELECT 
-            oi_meta.meta_value as product_id,
-            oi_var.meta_value as variation_id,
-            SUM(oi_qty.meta_value) as quantity
-        FROM {$wpdb->prefix}woocommerce_order_items oi
-        JOIN {$wpdb->posts} o ON oi.order_id = o.ID
-        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_meta ON oi.order_item_id = oi_meta.order_item_id AND oi_meta.meta_key = '_product_id'
-        LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_var ON oi.order_item_id = oi_var.order_item_id AND oi_var.meta_key = '_variation_id'
-        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
-        WHERE o.post_type = 'shop_order'
-        AND o.post_status IN ('wc-completed', 'wc-processing')
-        AND o.post_date BETWEEN %s AND %s
-        GROUP BY oi_meta.meta_value, oi_var.meta_value
-    ";
-    
-    $one_month_ago = date('Y-m-d', strtotime('-1 month'));
-    $one_month_sales = $wpdb->get_results($wpdb->prepare($one_month_query, $one_month_ago . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
-    
-    // Son 3 aylık verileri işle
-    foreach ($three_month_sales as $sale) {
-        $product_id = $sale['product_id'];
-        $variation_id = empty($sale['variation_id']) ? 0 : $sale['variation_id'];
-        $key = $variation_id > 0 ? "v_".$variation_id : "p_".$product_id;
-        
-        if (!isset($sales_data[$key])) {
-            $sales_data[$key] = array(
-                'product_id' => $product_id,
-                'variation_id' => $variation_id,
-                'last_month' => 0,
-                'last_3_months' => 0
-            );
-        }
-        
-        $sales_data[$key]['last_3_months'] = floatval($sale['quantity']);
-    }
-    
-    // Son 1 aylık verileri işle
-    foreach ($one_month_sales as $sale) {
-        $product_id = $sale['product_id'];
-        $variation_id = empty($sale['variation_id']) ? 0 : $sale['variation_id'];
-        $key = $variation_id > 0 ? "v_".$variation_id : "p_".$product_id;
-        
-        if (!isset($sales_data[$key])) {
-            $sales_data[$key] = array(
-                'product_id' => $product_id,
-                'variation_id' => $variation_id,
-                'last_month' => 0,
-                'last_3_months' => 0
-            );
-        }
-        
-        $sales_data[$key]['last_month'] = floatval($sale['quantity']);
-    }
-    
-    // Debug için satış verilerini logla
-    error_log('WASM Sales Data: ' . json_encode(array_keys($sales_data)));
-    
-    // Ürünleri ve satış verilerini birleştir
-    $result = array();
-    
-    // 1. Önce basit ürünleri işle
-    foreach ($products as $product) {
-        $product_id = $product['id'];
-        $product_type = isset($product['product_type']) ? $product['product_type'] : 'simple';
-        
-        // Varyasyonlu ürünleri şimdilik atla
-        if ($product_type === 'variable') {
-            continue;
-        }
-        
-        // Bu ürünün satış verileri
-        $sales_key = "p_".$product_id;
-        $sales = isset($sales_data[$sales_key]) ? $sales_data[$sales_key] : array(
-            'last_month' => 0,
-            'last_3_months' => 0
-        );
-        
-        // Stok miktarı
-        $stock = isset($product['stock']) ? intval($product['stock']) : 0;
-        
-        // Yeniden sipariş noktası
-        $reorder_point = !empty($product['reorder_point']) ? intval($product['reorder_point']) : 5;
-        
-        // Önerilen sipariş miktarını hesapla
-        $monthly_sales = $sales['last_3_months'] / 3; // Aylık ortalama satış
-        $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok
-        $recommended_order = $stock < $target_stock ? $target_stock - $stock : 0;
-        
-        // Stok durumunu belirle
-        $stock_status_value = 'good';
-        if ($stock <= $reorder_point) {
-            $stock_status_value = 'low';
-        }
-        if ($stock <= $reorder_point * 0.5) {
-            $stock_status_value = 'critical';
-        }
-        
-        // Kategori adını al
-        $category_names = empty($product['category_names']) ? __('Kategorisiz', 'wc-advanced-stock-manager') : $product['category_names'];
-        $primary_category = explode(', ', $category_names)[0]; // Birincil kategoriyi al
-        
-        $item = array(
-            'id' => $product_id,
-            'name' => $product['name'],
-            'sku' => $product['sku'],
-            'price' => floatval($product['price']),
-            'currentStock' => $stock,
-            'reorderPoint' => $reorder_point,
-            'lastMonthSales' => $sales['last_month'],
-            'last3MonthsSales' => $sales['last_3_months'],
-            'recommendedOrder' => $recommended_order,
-            'stockStatus' => $stock_status_value,
-            'category' => $primary_category,
-            'productType' => $product_type
-        );
-        
-        // Kategori filtresi
-        if (!empty($category) && $category !== 'all' && $primary_category !== $category) {
-            continue;
-        }
-        
-        // Stok durumu filtresi
-        if (!empty($stock_status) && $stock_status !== 'all' && $stock_status_value !== $stock_status) {
-            continue;
-        }
-        
-        // Arama filtresi
-        if (!empty($search)) {
-            $search_term = strtolower($search);
-            if (strpos(strtolower($product['name']), $search_term) === false && 
-                strpos(strtolower($product['sku']), $search_term) === false) {
-                continue;
+                // Varyasyon verilerini ekle
+                $product_data['variations'][] = array(
+                    'id' => $variation_id,
+                    'title' => implode(', ', $attributes), // Varyasyon başlığını niteliklerden oluştur
+                    'sku' => $variation_product->get_sku(),
+                    'stock' => $variation_stock,
+                    'stockStatus' => $variation_stock_status,
+                    'last3MonthsSales' => $variation_sales,
+                    'recommendedOrder' => $variation_recommended_order,
+                    'attributes' => $attributes
+                );
             }
         }
         
-        $result[] = $item;
+        $products[] = $product_data;
     }
     
-    // 2. Şimdi varyasyonları işleyelim ve varyasyonları olan ürünleri de ekleyelim
-    foreach ($variations_by_id as $variation_id => $variation) {
-        $product_id = $variation['product_id'];
-        
-        // Ana ürün var mı kontrol et
-        if (!isset($variable_products_by_id[$product_id])) {
-            error_log('WASM API: Ana ürün bulunamadı - ID: ' . $product_id);
-            continue;
-        }
-        
-        $parent_product = $variable_products_by_id[$product_id];
-        $parent_name = $parent_product['name'];
-        $variation_title = !empty($variation['variation_title']) ? $variation['variation_title'] : 'Varyasyon';
-        
-        // Kategori bilgisi
-        $category_names = empty($parent_product['category_names']) ? __('Kategorisiz', 'wc-advanced-stock-manager') : $parent_product['category_names'];
-        $primary_category = explode(', ', $category_names)[0]; // Birincil kategoriyi al
-        
-        // Bu varyasyonun satış verileri
-        $sales_key = "v_".$variation_id;
-        $sales = isset($sales_data[$sales_key]) ? $sales_data[$sales_key] : array(
-            'last_month' => 0,
-            'last_3_months' => 0
-        );
-        
-        // Stok miktarı
-        $stock = isset($variation['stock']) ? intval($variation['stock']) : 0;
-        
-        // Yeniden sipariş noktası
-        $reorder_point = !empty($variation['reorder_point']) ? intval($variation['reorder_point']) : 5;
-        
-        // Önerilen sipariş miktarını hesapla
-        $monthly_sales = $sales['last_3_months'] / 3; // Aylık ortalama satış
-        $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok
-        $recommended_order = $stock < $target_stock ? $target_stock - $stock : 0;
-        
-        // Stok durumunu belirle
-        $stock_status_value = 'good';
-        if ($stock <= $reorder_point) {
-            $stock_status_value = 'low';
-        }
-        if ($stock <= $reorder_point * 0.5) {
-            $stock_status_value = 'critical';
-        }
-        
-        // Varyasyon adını "Ürün Adı - Varyasyon Adı" olarak ayarla
-        $display_name = $parent_name . ' - ' . $variation_title;
-        
-        $item = array(
-            'id' => $variation_id,
-            'parentId' => $product_id,
-            'name' => $display_name,
-            'sku' => $variation['sku'],
-            'price' => floatval($variation['price']),
-            'currentStock' => $stock,
-            'reorderPoint' => $reorder_point,
-            'lastMonthSales' => $sales['last_month'],
-            'last3MonthsSales' => $sales['last_3_months'],
-            'recommendedOrder' => $recommended_order,
-            'stockStatus' => $stock_status_value,
-            'category' => $primary_category,
-            'productType' => 'variation'
-        );
-        
-        // Kategori filtresi
-        if (!empty($category) && $category !== 'all' && $primary_category !== $category) {
-            continue;
-        }
-        
-        // Stok durumu filtresi
-        if (!empty($stock_status) && $stock_status !== 'all' && $stock_status_value !== $stock_status) {
-            continue;
-        }
-        
-        // Arama filtresi
-        if (!empty($search)) {
-            $search_term = strtolower($search);
-            if (strpos(strtolower($display_name), $search_term) === false && 
-                strpos(strtolower($variation['sku']), $search_term) === false) {
-                continue;
-            }
-        }
-        
-        $result[] = $item;
-    }
-    
-    error_log('WASM API: Toplam döndürülen ürün sayısı: ' . count($result));
-    
-    return $result;
+    return $products;
 }
+
+/**
+ * API: Satış trendini getir
+ *
+ * @param WP_REST_Request $request API isteği
+ * @return array Satış trend verileri
+ */
+function wasm_api_get_sales_trend($request) {
+    $months = $request->get_param('months') ? intval($request->get_param('months')) : 12;
+    $months = min(max($months, 1), 24); // 1-24 ay arası sınırla
+    
+    $trend_data = array();
+    
+    // Şu andan geriye doğru her ay için verileri hesapla
+    for ($i = $months - 1; $i >= 0; $i--) {
+        $start_date = date('Y-m-01', strtotime("-$i months"));
+        $end_date = date('Y-m-t', strtotime("-$i months"));
+        
+        // Ay bilgisini oluştur
+        $month_name = date_i18n('F Y', strtotime($start_date));
+        
+        // Bu ay için tüm satışları topla
+        $total_sales = wasm_get_total_sales_in_period($start_date, $end_date);
+        
+        // Bu ay için ortalama stok miktarını hesapla
+        $average_stock = wasm_get_average_stock_in_period($start_date, $end_date);
+        
+        $trend_data[] = array(
+            'month' => $month_name,
+            'totalSales' => $total_sales,
+            'averageStock' => $average_stock
+        );
+    }
+    
+    return $trend_data;
+}
+
 /**
  * API: Kategorileri getir
+ *
+ * @return array Kategori verileri
  */
 function wasm_api_get_categories() {
     $categories = get_terms(array(
@@ -722,171 +473,389 @@ function wasm_api_get_categories() {
     
     $result = array();
     
-    if (!is_wp_error($categories) && !empty($categories)) {
+    if (!is_wp_error($categories)) {
         foreach ($categories as $category) {
-            $result[] = array(
-                'id' => $category->term_id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-                'count' => $category->count
+            // Kategori içindeki toplam ürün sayısını hesapla
+            $args = array(
+                'post_type' => 'product',
+                'posts_per_page' => -1,
+                'fields' => 'ids',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'product_cat',
+                        'field' => 'term_id',
+                        'terms' => $category->term_id
+                    )
+                )
             );
+            
+            $query = new WP_Query($args);
+            $count = $query->post_count;
+            
+            // Sadece ürün içeren kategorileri ekle
+            if ($count > 0) {
+                $result[] = array(
+                    'id' => $category->term_id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                    'count' => $count
+                );
+            }
         }
     }
-    
-    // Debug için
-    error_log('WASM Categories Count: ' . count($result));
     
     return $result;
 }
 
 /**
- * API: Satış trendini getir
- */
-function wasm_api_get_sales_trend($request) {
-    global $wpdb;
-    
-    $months = $request->get_param('months') ?: 12;
-    
-    // Son X ay için satış ve stok verilerini topla
-    $result = array();
-    
-    // Son X ay için döngü
-    for ($i = 0; $i < $months; $i++) {
-        $month_start = date('Y-m-01', strtotime("-{$i} months"));
-        $month_end = date('Y-m-t', strtotime("-{$i} months"));
-        $month_key = date('M', strtotime("-{$i} months")); // Ay kısaltması (İng)
-        
-        // O ay için satış verilerini al
-        $sales_query = "
-            SELECT SUM(meta_qty.meta_value) as total_quantity
-            FROM {$wpdb->posts} orders
-            JOIN {$wpdb->prefix}woocommerce_order_items items ON orders.ID = items.order_id
-            JOIN {$wpdb->prefix}woocommerce_order_itemmeta meta_qty ON items.order_item_id = meta_qty.order_item_id
-            WHERE orders.post_type = 'shop_order'
-            AND orders.post_status IN ('wc-completed', 'wc-processing')
-            AND meta_qty.meta_key = '_qty'
-            AND orders.post_date BETWEEN %s AND %s
-        ";
-        
-        $total_sales = $wpdb->get_var($wpdb->prepare($sales_query, $month_start . ' 00:00:00', $month_end . ' 23:59:59'));
-        
-        // O ay için ortalama stok seviyesini hesapla
-        $stock_query = "
-            SELECT AVG(meta_stock.meta_value) as avg_stock
-            FROM {$wpdb->posts} products
-            JOIN {$wpdb->postmeta} meta_stock ON products.ID = meta_stock.post_id
-            WHERE products.post_type = 'product'
-            AND meta_stock.meta_key = '_stock'
-            AND products.post_date <= %s
-        ";
-        
-        $avg_stock = $wpdb->get_var($wpdb->prepare($stock_query, $month_end . ' 23:59:59'));
-        
-        // Result dizisine ekle
-        $result[$months - $i - 1] = array(
-            'month' => $month_key,
-            'totalSales' => intval($total_sales) ?: 0,
-            'averageStock' => intval($avg_stock) ?: 0
-        );
-    }
-    
-    // Sonuçları zaman sırasına göre sırala
-    ksort($result);
-    
-    return array_values($result);
-}
-
-/**
- * API: Kategorileri getir
- */
-
-/**
  * API: Özet bilgileri getir
+ *
+ * @return array Özet veriler
  */
 function wasm_api_get_summary() {
-    global $wpdb;
-    
     // Toplam ürün sayısı
-    $total_products = $wpdb->get_var("
-        SELECT COUNT(ID) 
-        FROM {$wpdb->posts} 
-        WHERE post_type = 'product' 
-        AND post_status = 'publish'
-    ");
+    $args = array(
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+        'post_status' => 'publish'
+    );
     
-    // Düşük stoklu ürünler
-    $low_stock_query = "
-        SELECT COUNT(*)
-        FROM {$wpdb->posts} p
-        JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
-        LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
-        WHERE p.post_type = 'product'
-        AND p.post_status = 'publish'
-        AND pm_stock.meta_value <= COALESCE(pm_threshold.meta_value, 5)
-        AND pm_stock.meta_value > 0
-    ";
+    $query = new WP_Query($args);
+    $total_products = $query->post_count;
     
-    $low_stock_count = $wpdb->get_var($low_stock_query);
+    // Düşük stoklu ürün sayısı
+    $low_stock_count = 0;
+    $total_stock_value = 0;
     
-    // Toplam stok değeri
-    $stock_value_query = "
-        SELECT SUM(pm_stock.meta_value * pm_price.meta_value) as total_value
-        FROM {$wpdb->posts} p
-        JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
-        JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
-        WHERE p.post_type = 'product'
-        AND p.post_status = 'publish'
-        AND pm_stock.meta_value > 0
-    ";
+    // Ayarlardan eşik değerlerini al
+    $settings = get_option('wasm_settings', array(
+        'critical_threshold' => 5,
+        'low_threshold' => 15
+    ));
     
-    $total_stock_value = $wpdb->get_var($stock_value_query);
+    $critical_threshold = isset($settings['critical_threshold']) ? intval($settings['critical_threshold']) : 5;
+    $low_threshold = isset($settings['low_threshold']) ? intval($settings['low_threshold']) : 15;
     
-    // Son 3 ay satış toplamı
-    $sales_query = "
-        SELECT COUNT(DISTINCT o.ID) as order_count, SUM(oi_qty.meta_value) as item_count
-        FROM {$wpdb->posts} o
-        JOIN {$wpdb->prefix}woocommerce_order_items oi ON o.ID = oi.order_id
-        JOIN {$wpdb->prefix}woocommerce_order_itemmeta oi_qty ON oi.order_item_id = oi_qty.order_item_id AND oi_qty.meta_key = '_qty'
-        WHERE o.post_type = 'shop_order'
-        AND o.post_status IN ('wc-completed', 'wc-processing')
-        AND o.post_date >= %s
-    ";
+    foreach ($query->posts as $product_id) {
+        $product = wc_get_product($product_id);
+        
+        if (!$product) {
+            continue;
+        }
+        
+        // Stok miktarını al
+        $stock = $product->get_stock_quantity();
+        
+        // Varyasyonlu ürünler için toplam stok hesapla
+        if ($product->is_type('variable')) {
+            $variations = $product->get_children();
+            $total_stock = 0;
+            
+            foreach ($variations as $variation_id) {
+                $variation = wc_get_product($variation_id);
+                if ($variation) {
+                    $variation_stock = $variation->get_stock_quantity();
+                    if ($variation_stock !== null && $variation_stock !== false) {
+                        $total_stock += (int)$variation_stock;
+                    }
+                }
+            }
+            
+            $stock = $total_stock;
+        }
+        
+        // Stok değeri hesapla
+        if ($stock !== null && $stock !== false) {
+            $stock = (int)$stock;
+            $price = $product->get_price();
+            
+            if ($price) {
+                $total_stock_value += $stock * floatval($price);
+            }
+            
+            // Düşük stok kontrolü
+            if ($stock <= $low_threshold) {
+                $low_stock_count++;
+            }
+        }
+    }
     
-    $three_months_ago = date('Y-m-d', strtotime('-3 months'));
-    $sales_data = $wpdb->get_row($wpdb->prepare($sales_query, $three_months_ago . ' 00:00:00'), ARRAY_A);
+    // Son 30 gündeki satışlar
+    $sold_items = wasm_get_total_sales_in_period(
+        date('Y-m-d', strtotime('-30 days')),
+        date('Y-m-d')
+    );
     
     return array(
-        'totalProducts' => intval($total_products),
-        'lowStockCount' => intval($low_stock_count),
-        'totalStockValue' => floatval($total_stock_value),
-        'orderCount' => intval($sales_data['order_count']),
-        'soldItems' => intval($sales_data['item_count'])
+        'totalProducts' => $total_products,
+        'lowStockCount' => $low_stock_count,
+        'totalStockValue' => $total_stock_value,
+        'soldItems' => $sold_items
     );
 }
 
 /**
- * Dil dosyalarını yükle
+ * Stok durumunu belirler (iyi, düşük, kritik)
+ *
+ * @param int $stock_quantity Stok miktarı
+ * @return string Stok durumu ('good', 'low', 'critical')
  */
-function wasm_load_textdomain() {
-    load_plugin_textdomain('wc-advanced-stock-manager', false, dirname(WASM_PLUGIN_BASENAME) . '/languages/');
-}
-add_action('plugins_loaded', 'wasm_load_textdomain');
-
-/**
- * Eklenti aktifleştirildiğinde çalışır
- */
-function wasm_activation() {
-    // Varsayılan ayarları oluştur
-    if (!get_option('wasm_settings')) {
-        update_option('wasm_settings', array(
-            'reorder_threshold' => 1.5,
-            'stock_period' => 2
-        ));
+function wasm_get_stock_status($stock_quantity) {
+    // Ayarlardan eşik değerlerini al
+    $settings = get_option('wasm_settings', array(
+        'critical_threshold' => 5,
+        'low_threshold' => 15
+    ));
+    
+    $critical_threshold = isset($settings['critical_threshold']) ? intval($settings['critical_threshold']) : 5;
+    $low_threshold = isset($settings['low_threshold']) ? intval($settings['low_threshold']) : 15;
+    
+    if ($stock_quantity <= $critical_threshold) {
+        return 'critical';
+    } elseif ($stock_quantity <= $low_threshold) {
+        return 'low';
+    } else {
+        return 'good';
     }
 }
-register_activation_hook(__FILE__, 'wasm_activation');
 
 /**
- * Sınıfları yükle (eklenti başlatılırken)
+ * Belirli bir zaman aralığında ürün satışlarını hesaplar
+ *
+ * @param int $product_id Ürün ID
+ * @param string $start_date Başlangıç tarihi (YYYY-MM-DD)
+ * @param string $end_date Bitiş tarihi (YYYY-MM-DD)
+ * @return int Satış miktarı
  */
-add_action('plugins_loaded', 'wasm_load_classes');
+function wasm_get_product_sales_in_period($product_id, $start_date = '', $end_date = '') {
+    // Tarih aralığı yoksa son 3 ayı kullan
+    if (empty($start_date)) {
+        $start_date = date('Y-m-d', strtotime('-3 months'));
+    }
+    
+    if (empty($end_date)) {
+        $end_date = date('Y-m-d');
+    }
+    
+    // Satış verilerini getir (WooCommerce siparişlerini sorgula)
+    global $wpdb;
+    
+    // Tamamlanmış siparişler içinde ürün miktarını topla
+    $sales_query = $wpdb->prepare(
+        "SELECT SUM(order_item_meta__qty.meta_value) as qty 
+        FROM {$wpdb->posts} AS posts
+        INNER JOIN {$wpdb->prefix}woocommerce_order_items AS order_items ON posts.ID = order_items.order_id
+        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__product_id ON order_items.order_item_id = order_item_meta__product_id.order_item_id
+        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
+        WHERE posts.post_type = 'shop_order'
+        AND posts.post_status IN ('wc-completed', 'wc-processing')
+        AND order_item_meta__product_id.meta_key = '_product_id'
+        AND order_item_meta__product_id.meta_value = %d
+        AND order_item_meta__qty.meta_key = '_qty'
+        AND posts.post_date BETWEEN %s AND %s",
+        $product_id,
+        $start_date . ' 00:00:00',
+        $end_date . ' 23:59:59'
+    );
+    
+    // Varyasyonlar için de kontrol et
+    $variation_sales_query = $wpdb->prepare(
+        "SELECT SUM(order_item_meta__qty.meta_value) as qty 
+        FROM {$wpdb->posts} AS posts
+        INNER JOIN {$wpdb->prefix}woocommerce_order_items AS order_items ON posts.ID = order_items.order_id
+        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__variation_id ON order_items.order_item_id = order_item_meta__variation_id.order_item_id
+        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
+        WHERE posts.post_type = 'shop_order'
+        AND posts.post_status IN ('wc-completed', 'wc-processing')
+        AND order_item_meta__variation_id.meta_key = '_variation_id'
+        AND order_item_meta__variation_id.meta_value = %d
+        AND order_item_meta__qty.meta_key = '_qty'
+        AND posts.post_date BETWEEN %s AND %s",
+        $product_id,
+        $start_date . ' 00:00:00',
+        $end_date . ' 23:59:59'
+    );
+    
+    $product_sales = $wpdb->get_var($sales_query);
+    $variation_sales = $wpdb->get_var($variation_sales_query);
+    
+    // Null değerler için 0 kullan
+    $product_sales = $product_sales ? intval($product_sales) : 0;
+    $variation_sales = $variation_sales ? intval($variation_sales) : 0;
+    
+    // Bu ürün ID'si ana ürün mü yoksa varyasyon mu kontrol et
+    $product = wc_get_product($product_id);
+    
+    if ($product && $product->is_type('variation')) {
+        // Varyasyon ise sadece varyasyon satışlarını döndür
+        return $variation_sales;
+    } else {
+        // Ana ürün ise, eğer varyasyonsuz bir ürünse kendi satışlarını, 
+        // değilse tüm varyasyonların toplam satışını döndür
+        if ($product && $product->is_type('variable')) {
+            $variations = $product->get_children();
+            
+            if (!empty($variations)) {
+                // Varyasyonlu ürünler için toplam satışları hesapla
+                // Bu, tüm varyasyonların satışlarını içerir
+                $total_sales = 0;
+                
+                foreach ($variations as $variation_id) {
+                    $variation_query = $wpdb->prepare(
+                        "SELECT SUM(order_item_meta__qty.meta_value) as qty 
+                        FROM {$wpdb->posts} AS posts
+                        INNER JOIN {$wpdb->prefix}woocommerce_order_items AS order_items ON posts.ID = order_items.order_id
+                        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__variation_id ON order_items.order_item_id = order_item_meta__variation_id.order_item_id
+                        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
+                        WHERE posts.post_type = 'shop_order'
+                        AND posts.post_status IN ('wc-completed', 'wc-processing')
+                        AND order_item_meta__variation_id.meta_key = '_variation_id'
+                        AND order_item_meta__variation_id.meta_value = %d
+                        AND order_item_meta__qty.meta_key = '_qty'
+                        AND posts.post_date BETWEEN %s AND %s",
+                        $variation_id,
+                        $start_date . ' 00:00:00',
+                        $end_date . ' 23:59:59'
+                    );
+                    
+                    $var_sales = $wpdb->get_var($variation_query);
+                    $total_sales += $var_sales ? intval($var_sales) : 0;
+                }
+                
+                return $total_sales;
+            }
+        }
+        
+        return $product_sales;
+    }
+}
+
+/**
+ * Belirli bir zaman aralığında toplam satışları hesaplar
+ *
+ * @param string $start_date Başlangıç tarihi (YYYY-MM-DD)
+ * @param string $end_date Bitiş tarihi (YYYY-MM-DD)
+ * @return int Toplam satış miktarı
+ */
+function wasm_get_total_sales_in_period($start_date, $end_date) {
+    global $wpdb;
+    
+    // Tamamlanmış siparişler içinde toplam ürün miktarını hesapla
+    $query = $wpdb->prepare(
+        "SELECT SUM(order_item_meta__qty.meta_value) as qty 
+        FROM {$wpdb->posts} AS posts
+        INNER JOIN {$wpdb->prefix}woocommerce_order_items AS order_items ON posts.ID = order_items.order_id
+        INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
+        WHERE posts.post_type = 'shop_order'
+        AND posts.post_status IN ('wc-completed', 'wc-processing')
+        AND order_item_meta__qty.meta_key = '_qty'
+        AND posts.post_date BETWEEN %s AND %s",
+        $start_date . ' 00:00:00',
+        $end_date . ' 23:59:59'
+    );
+    
+    $result = $wpdb->get_var($query);
+    
+    return $result ? intval($result) : 0;
+}
+
+/**
+ * Belirli bir zaman aralığında ortalama stok miktarını hesaplar
+ *
+ * @param string $start_date Başlangıç tarihi (YYYY-MM-DD)
+ * @param string $end_date Bitiş tarihi (YYYY-MM-DD)
+ * @return int Ortalama stok miktarı
+ */
+function wasm_get_average_stock_in_period($start_date, $end_date) {
+    // Bu fonksiyon şu anda stok geçmişini tutmadığımız için, mevcut stok değerini kullanır
+    // İleride stok geçmişi eklenirse burada geçmiş ortalama stok değeri hesaplanabilir
+    
+    $args = array(
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+        'post_status' => 'publish'
+    );
+    
+    $query = new WP_Query($args);
+    $total_stock = 0;
+    $product_count = 0;
+    
+    foreach ($query->posts as $product_id) {
+        $product = wc_get_product($product_id);
+        
+        if (!$product || !$product->managing_stock()) {
+            continue;
+        }
+        
+        $stock = $product->get_stock_quantity();
+        
+        // Varyasyonlu ürünler için toplam stok hesapla
+        if ($product->is_type('variable')) {
+            $variations = $product->get_children();
+            $product_stock = 0;
+            
+            foreach ($variations as $variation_id) {
+                $variation = wc_get_product($variation_id);
+                if ($variation && $variation->managing_stock()) {
+                    $variation_stock = $variation->get_stock_quantity();
+                    if ($variation_stock !== null && $variation_stock !== false) {
+                        $product_stock += intval($variation_stock);
+                    }
+                }
+            }
+            
+            $stock = $product_stock;
+        }
+        
+        if ($stock !== null && $stock !== false) {
+            $total_stock += intval($stock);
+            $product_count++;
+        }
+    }
+    
+    return $product_count > 0 ? round($total_stock / $product_count) : 0;
+}
+
+/**
+ * Önerilen sipariş miktarını hesaplar
+ *
+ * @param int $product_id Ürün ID
+ * @param int $current_stock Mevcut stok
+ * @param int $last_period_sales Son dönem satışları
+ * @return int Önerilen sipariş miktarı
+ */
+function wasm_calculate_recommended_order($product_id, $current_stock, $last_period_sales) {
+    // Ayarlardan eşik değerlerini ve katsayıları al
+    $settings = get_option('wasm_settings', array(
+        'reorder_threshold' => 1.5,
+        'stock_period' => 2
+    ));
+    
+    $reorder_threshold = isset($settings['reorder_threshold']) ? floatval($settings['reorder_threshold']) : 1.5;
+    $stock_period = isset($settings['stock_period']) ? intval($settings['stock_period']) : 2;
+    
+    // Son dönemdeki satışlardan aylık satış tahmin et (son 3 ay varsayalım)
+    $monthly_sales = $last_period_sales / 3;
+    
+    // Stok yeterlilik süresi = mevcut stok / aylık satış
+    if ($monthly_sales <= 0) {
+        return 0; // Satış yoksa sipariş önerme
+    }
+    
+    $stock_sufficiency = $current_stock / $monthly_sales; // ay cinsinden
+    
+    // Eğer stok yeterlilik süresi eşik değerinden düşükse, sipariş öner
+    if ($stock_sufficiency < $reorder_threshold) {
+        // Önerilen stok = stok dönemi * aylık satış
+        $recommended_stock = ceil($stock_period * $monthly_sales);
+        
+        // Sipariş miktarı = önerilen stok - mevcut stok
+        $order_amount = $recommended_stock - $current_stock;
+        
+        return ($order_amount > 0) ? $order_amount : 0;
+    }
+    
+    return 0; // Yeterli stok var, sipariş önerme
+}

@@ -15,6 +15,11 @@ const ProductTable = ({ products, filters, onSort }) => {
       critical: 'Kritik',
       low: 'Düşük',
       good: 'İyi',
+      variations: 'Varyasyonlar',
+      variable: 'Değişkenli',
+      simple: 'Basit',
+      variation: 'Varyasyon',
+      total: 'Toplam'
     }
   };
   
@@ -51,6 +56,16 @@ const ProductTable = ({ products, filters, onSort }) => {
         return translations.low || 'Düşük';
       default:
         return translations.good || 'İyi';
+    }
+  };
+  
+  // Ürün türü etiketini belirle
+  const getProductTypeLabel = (type) => {
+    switch (type) {
+      case 'variable':
+        return translations.variable || 'Değişkenli';
+      default:
+        return translations.simple || 'Basit';
     }
   };
   
@@ -112,32 +127,72 @@ const ProductTable = ({ products, filters, onSort }) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {products.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                   {translations.noProductsFound || 'Filtrelere uygun ürün bulunamadı.'}
                 </td>
               </tr>
             ) : (
               products.map((product) => {
                 const statusColors = getStockStatusColor(product.stockStatus);
+                const isVariable = product.productType === 'variable';
+                const isVariation = product.isVariation === true;
                 
                 return (
-                  <tr key={product.id} className={product.productType === 'variation' ? 'bg-gray-50' : ''}>
+                  <tr key={product.id} className={isVariation ? 'bg-gray-50' : ''}>
                     <td className="px-6 py-4 whitespace-normal">
                       <div className="flex items-center">
-                        <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
-                          <a 
-                            href={`${window.wasmSettings.siteUrl}/wp-admin/post.php?post=${product.parentId || product.id}&action=edit`}
-                            className="hover:text-blue-600 hover:underline"
-                            title={product.name}
-                          >
-                            {product.name}
-                          </a>
+                        <div className={`text-sm font-medium text-gray-900 truncate max-w-xs ${isVariation ? 'pl-4' : ''}`}>
+                          {isVariation ? (
+                            // Varyasyon gösterimi
+                            <div className="flex items-center">
+                              <span className="inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-800 px-2 mr-2">
+                                {translations.variation || 'Varyasyon'}
+                              </span>
+                              <span title={product.name}>{product.name}</span>
+                            </div>
+                          ) : (
+                            // Ana ürün gösterimi
+                            <>
+                              <a 
+                                href={`${window.wasmSettings.siteUrl}/wp-admin/post.php?post=${product.id}&action=edit`} 
+                                className="hover:text-blue-600 hover:underline"
+                                title={product.name}
+                              >
+                                {product.name}
+                              </a>
+                              
+                              {isVariable && (
+                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                  {getProductTypeLabel('variable')}
+                                </span>
+                              )}
+                              
+                              {!isVariable && (
+                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                  {getProductTypeLabel('simple')}
+                                </span>
+                              )}
+                            </>
+                          )}
+                          
+                          {/* Varyasyon niteliklerini göster */}
+                          {isVariation && product.attributes && product.attributes.length > 0 && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              {product.attributes.join(', ')}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`text-sm font-medium ${statusColors.textColor}`}>
                         {product.currentStock}
+                        
+                        {isVariable && !isVariation && (
+                          <span className="ml-1 text-xs text-gray-500">
+                            ({translations.total || 'Toplam'})
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

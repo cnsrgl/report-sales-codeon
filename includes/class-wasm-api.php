@@ -107,10 +107,23 @@ class WASM_API {
      * API: Satış trendini getir
      */
     public function get_sales_trend($request) {
-        // Bu fonksiyon ana dosyada tanımlanmış
-        return wasm_api_get_sales_trend($request);
+        try {
+            // Debug için
+            error_log('WASM API: get_sales_trend çağrıldı');
+            
+            // İlk olarak hook'u çalıştır, override varsa onu kullan
+            $override_data = apply_filters('wasm_api_get_sales_trend', null, $request);
+            if ($override_data !== null) {
+                return $override_data;
+            }
+            
+            // Alternatif yok, orijinal fonksiyonu çağır
+            return wasm_api_get_sales_trend($request);
+        } catch (Exception $e) {
+            error_log('WASM API: Trend hesaplama hatası - ' . $e->getMessage());
+            return new WP_Error('trend_calculation_error', $e->getMessage(), array('status' => 500));
+        }
     }
-    
     /**
      * API: Kategorileri getir
      */

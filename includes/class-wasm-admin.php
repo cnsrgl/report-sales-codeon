@@ -29,7 +29,6 @@ class WASM_Admin {
     public function render_admin_page() {
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('WooCommerce Gelişmiş Stok Yönetimi', 'wc-advanced-stock-manager'); ?></h1>
             <div id="wasm-app"></div>
         </div>
         <?php

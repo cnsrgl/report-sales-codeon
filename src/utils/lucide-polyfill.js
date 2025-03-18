@@ -80,6 +80,40 @@ export const Search = createLucideIcon('Search', [
   createElement('line', { x1: '21', y1: '21', x2: '16.65', y2: '16.65', key: 'svg-1' }),
 ]);
 
+export const FileText = createLucideIcon('FileText', [
+  createElement('path', { d: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z', key: 'svg-0' }),
+  createElement('polyline', { points: '14 2 14 8 20 8', key: 'svg-1' }),
+  createElement('line', { x1: '16', y1: '13', x2: '8', y2: '13', key: 'svg-2' }),
+  createElement('line', { x1: '16', y1: '17', x2: '8', y2: '17', key: 'svg-3' }),
+  createElement('polyline', { points: '10 9 9 9 8 9', key: 'svg-4' }),
+]);
+
+export const Download = createLucideIcon('Download', [
+  createElement('path', { d: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4', key: 'svg-0' }),
+  createElement('polyline', { points: '7 10 12 15 17 10', key: 'svg-1' }),
+  createElement('line', { x1: '12', y1: '15', x2: '12', y2: '3', key: 'svg-2' }),
+]);
+
+export const AlertCircle = createLucideIcon('AlertCircle', [
+  createElement('circle', { cx: '12', cy: '12', r: '10', key: 'svg-0' }),
+  createElement('line', { x1: '12', y1: '8', x2: '12', y2: '12', key: 'svg-1' }),
+  createElement('line', { x1: '12', y1: '16', x2: '12.01', y2: '16', key: 'svg-2' }),
+]);
+
+export const ChevronDown = createLucideIcon('ChevronDown', [
+  createElement('polyline', { points: '6 9 12 15 18 9', key: 'svg-0' }),
+]);
+
+export const ChevronRight = createLucideIcon('ChevronRight', [
+  createElement('polyline', { points: '9 18 15 12 9 6', key: 'svg-0' }),
+]);
+
+export const Globe = createLucideIcon('Globe', [
+  createElement('circle', { cx: '12', cy: '12', r: '10', key: 'svg-0' }),
+  createElement('line', { x1: '2', y1: '12', x2: '22', y2: '12', key: 'svg-1' }),
+  createElement('path', { d: 'M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z', key: 'svg-2' }),
+]);
+
 // Bütün ikonları dışa aktar
 export const lucideIcons = {
   Package,
@@ -87,5 +121,11 @@ export const lucideIcons = {
   AlertTriangle,
   RefreshCw,
   TrendingUp,
-  Search
+  Search,
+  FileText,
+  Download,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Globe
 };

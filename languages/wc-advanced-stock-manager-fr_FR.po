@@ -1,0 +1,436 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: WooCommerce Gelişmiş Stok Yönetimi\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-11 21:58+0000\n"
+"PO-Revision-Date: 2025-03-11 23:45+0000\n"
+"Last-Translator: \n"
+"Language-Team: Français\n"
+"Language: fr_FR\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Loco https://localise.biz/\n"
+"X-Loco-Version: 2.7.1; wp-6.7.2\n"
+"X-Domain: wc-advanced-stock-manager"
+
+#: woocommerce-advanced-stock-manager.php:230
+msgid "Arama"
+msgstr "Recherche"
+
+#: includes/class-wasm-fpdf.php:196
+msgid "Arama:"
+msgstr "Recherche :"
+
+#: includes/class-wasm-fpdf.php:254 includes/class-wasm-fpdf.php:534
+msgid "Ay"
+msgstr "Mois"
+
+#: woocommerce-advanced-stock-manager.php:168
+msgid ""
+"Aylık satışların kaç katı stok tutmak istediğinizi belirler. Örneğin 2, iki "
+"aylık satışa yetecek stok tutmayı hedefler."
+msgstr ""
+"Détermine combien de fois vos ventes mensuelles vous souhaitez garder en "
+"stock. Par exemple, si vous indiquez 2, cela signifie que vous visez un "
+"stock suffisant pour couvrir deux mois de ventes."
+
+#. Author of the plugin
+msgid "Codeon"
+msgstr "Codeon"
+
+#: includes/class-wasm-fpdf.php:325 includes/class-wasm-fpdf.php:426
+msgid "Durum"
+msgstr "Statut"
+
+#: includes/class-wasm-fpdf.php:567
+msgid "Dönem Ortalama Stok:"
+msgstr "Stock moyen de la période :"
+
+#: includes/class-wasm-fpdf.php:566
+msgid "Dönem Toplam Satış:"
+msgstr "Ventes totales de la période :"
+
+#: woocommerce-advanced-stock-manager.php:242 includes/class-wasm-fpdf.php:185
+#: includes/class-wasm-fpdf.php:353 includes/class-wasm-fpdf.php:453
+msgid "Düşük"
+msgstr "Faible"
+
+#: woocommerce-advanced-stock-manager.php:218 includes/class-wasm-fpdf.php:224
+msgid "Düşük Stok"
+msgstr "Stock faible"
+
+#: includes/class-wasm-fpdf.php:142
+msgid "Düşük Stok ve Sipariş Raporu"
+msgstr "Rapport sur les stocks faibles et les commandes"
+
+#: includes/class-wasm-fpdf.php:414
+msgid "Düşük Stoklu Ürünler"
+msgstr "Produits en stock faible"
+
+#: includes/class-wasm-fpdf.php:418
+msgid "Düşük stoklu ürün bulunmamaktadır."
+msgstr "Aucun produit en stock faible."
+
+#: woocommerce-advanced-stock-manager.php:222
+msgid "Filtreler"
+msgstr "Filtres"
+
+#: includes/class-wasm-fpdf.php:157
+msgid "Filtreler:"
+msgstr "Filtres :"
+
+#: woocommerce-advanced-stock-manager.php:244
+msgid "Filtrelere uygun ürün bulunamadı."
+msgstr "Aucun produit correspondant aux filtres n'a été trouvé."
+
+#: woocommerce-advanced-stock-manager.php:223
+msgid "Filtreleri Temizle"
+msgstr "Effacer les filtres."
+
+#: woocommerce-advanced-stock-manager.php:71
+#: woocommerce-advanced-stock-manager.php:72
+msgid "Gelişmiş Stok Yönetimi"
+msgstr "Gestion de stock avancée et rapport"
+
+#: woocommerce-advanced-stock-manager.php:126
+msgid "Genel Ayarlar"
+msgstr "Paramètres généraux."
+
+#: includes/class-wasm-fpdf.php:123
+msgid "Geçersiz rapor tipi."
+msgstr "Type de rapport invalide."
+
+#: includes/class-wasm-api.php:205
+msgid "Geçersiz rapor türü."
+msgstr "Type de rapport incorrect."
+
+#. Author URI of the plugin
+msgid "https://codeon.ch"
+msgstr ""
+
+#. URI of the plugin
+msgid "https://example.com/woocommerce-advanced-stock-manager"
+msgstr "https://codeon.ch/"
+
+#: woocommerce-advanced-stock-manager.php:225 includes/class-wasm-fpdf.php:287
+#: includes/class-wasm-fpdf.php:327 includes/class-wasm-fpdf.php:427
+#: includes/class-wasm-fpdf.php:485
+msgid "Kategori"
+msgstr "Catégorie"
+
+#: woocommerce-advanced-stock-manager.php:232 includes/class-wasm-fpdf.php:274
+msgid "Kategori Dağılımı"
+msgstr "Répartition des catégories"
+
+#: includes/class-wasm-fpdf.php:172
+msgid "Kategori:"
+msgstr "Catégorie :"
+
+#: woocommerce-advanced-stock-manager.php:434 includes/class-wasm-fpdf.php:389
+#: includes/class-wasm-fpdf.php:462 includes/class-wasm-fpdf.php:508
+msgid "Kategorisiz"
+msgstr "Sans catégorie"
+
+#: woocommerce-advanced-stock-manager.php:241 includes/class-wasm-fpdf.php:182
+#: includes/class-wasm-fpdf.php:349 includes/class-wasm-fpdf.php:449
+msgid "Kritik"
+msgstr "Critique"
+
+#: woocommerce-advanced-stock-manager.php:229
+msgid "Kritik Stok"
+msgstr "Stock critique"
+
+#: woocommerce-advanced-stock-manager.php:237
+msgid "Mevcut Stok"
+msgstr "Stock actuel"
+
+#: includes/class-wasm-fpdf.php:100
+msgid "Oluşturulma Tarihi:"
+msgstr "Date de création :"
+
+#: woocommerce-advanced-stock-manager.php:246 includes/class-wasm-fpdf.php:256
+#: includes/class-wasm-fpdf.php:536
+msgid "Ortalama Stok"
+msgstr "Stock moyen"
+
+#: woocommerce-advanced-stock-manager.php:256
+msgid ""
+"PDF formatında rapor oluşturmak için bir rapor türü seçin ve \"Rapor "
+"Oluştur\" düğmesine tıklayın."
+msgstr ""
+"Pour générer un rapport au format PDF, sélectionnez un type de rapport et "
+"cliquez sur \"Générer le rapport\"."
+
+#: includes/class-wasm-api.php:216
+msgid "PDF oluşturma başarısız oldu."
+msgstr "Échec de la création du PDF."
+
+#: woocommerce-advanced-stock-manager.php:260
+msgid "Rapor hazır"
+msgstr "Rapport prêt"
+
+#: woocommerce-advanced-stock-manager.php:250
+msgid "Rapor Oluştur"
+msgstr "Générer le rapport"
+
+#: woocommerce-advanced-stock-manager.php:258
+msgid "Rapor oluşturulurken bir hata oluştu:"
+msgstr "Une erreur s'est produite lors de la création du rapport :"
+
+#: woocommerce-advanced-stock-manager.php:257
+msgid "Rapor oluşturuluyor..."
+msgstr "Création du rapport en cours..."
+
+#: woocommerce-advanced-stock-manager.php:251
+msgid "Rapor Türü"
+msgstr "Type de rapport"
+
+#: woocommerce-advanced-stock-manager.php:249
+msgid "Raporlar"
+msgstr "Rapports"
+
+#: woocommerce-advanced-stock-manager.php:259
+msgid "Raporu İndir"
+msgstr "Télécharger le rapport"
+
+#: woocommerce-advanced-stock-manager.php:185
+msgid ""
+"Satış analizini kaç aylık veriye dayandırmak istediğinizi belirler. Örneğin "
+"3, son 3 ayın satış verilerini kullanır."
+msgstr ""
+"Déterminez sur combien de mois de données vous souhaitez baser votre analyse "
+"des ventes. Par exemple, si vous indiquez 3, cela utilisera les données de "
+"ventes des 3 derniers mois."
+
+#: woocommerce-advanced-stock-manager.php:255
+msgid "Satış Raporu"
+msgstr "Rapport de ventes"
+
+#: includes/class-wasm-fpdf.php:523
+msgid "Satış trend verisi bulunamadı."
+msgstr "Aucune donnée de tendance des ventes trouvée."
+
+#: includes/class-wasm-fpdf.php:249 includes/class-wasm-fpdf.php:529
+msgid "Satış Trendi"
+msgstr "Tendance des ventes"
+
+#: includes/class-wasm-fpdf.php:144
+msgid "Satış Trendi Raporu"
+msgstr "Rapport de tendance des ventes"
+
+#: includes/class-wasm-fpdf.php:560
+msgid "Satış ve Stok Analizi"
+msgstr "Analyse des ventes et des stocks"
+
+#: woocommerce-advanced-stock-manager.php:221
+msgid "Satış ve Stok Trendi"
+msgstr "Tendance des ventes et des stocks"
+
+#: includes/class-wasm-fpdf.php:74
+msgid "Sayfa"
+msgstr "Page"
+
+#: woocommerce-advanced-stock-manager.php:219 includes/class-wasm-fpdf.php:230
+msgid "Sipariş Edilecek"
+msgstr "À commander"
+
+#: includes/class-wasm-fpdf.php:471
+msgid "Sipariş Edilecek Ürünler"
+msgstr "Produits à commander"
+
+#: includes/class-wasm-fpdf.php:475
+msgid "Sipariş edilecek ürün bulunmamaktadır."
+msgstr "Aucun produit à commander."
+
+#: woocommerce-advanced-stock-manager.php:133
+msgid "Sipariş Eşiği Hesaplama Faktörü"
+msgstr "Facteur de calcul du seuil de commande"
+
+#: woocommerce-advanced-stock-manager.php:236 includes/class-wasm-fpdf.php:322
+#: includes/class-wasm-fpdf.php:424 includes/class-wasm-fpdf.php:481
+msgid "SKU"
+msgstr ""
+
+#: includes/class-wasm-fpdf.php:324 includes/class-wasm-fpdf.php:483
+msgid "Son 3 Ay"
+msgstr "Derniers 3 mois"
+
+#: woocommerce-advanced-stock-manager.php:238
+msgid "Son 3 Ay Satış"
+msgstr "Ventes des 3 derniers mois"
+
+#: includes/class-wasm-fpdf.php:323 includes/class-wasm-fpdf.php:425
+#: includes/class-wasm-fpdf.php:482
+msgid "Stok"
+msgstr "Stock"
+
+#: woocommerce-advanced-stock-manager.php:220 includes/class-wasm-fpdf.php:234
+msgid "Stok Değeri"
+msgstr "Valeur du stock"
+
+#: woocommerce-advanced-stock-manager.php:227
+#: woocommerce-advanced-stock-manager.php:239
+msgid "Stok Durumu"
+msgstr "État du stock"
+
+#: includes/class-wasm-fpdf.php:191
+msgid "Stok Durumu:"
+msgstr "Statut du stock :"
+
+#: woocommerce-advanced-stock-manager.php:216
+msgid ""
+"Stok durumunuzu izleyin, satış trendlerini analiz edin ve sipariş planlaması "
+"yapın."
+msgstr ""
+"Surveillez l'état de votre stock, analysez les tendances de vente et "
+"planifiez vos commandes."
+
+#: woocommerce-advanced-stock-manager.php:141
+msgid "Stok Hesaplama Periyodu (Ay)"
+msgstr "Période de calcul du stock (Mois)"
+
+#: woocommerce-advanced-stock-manager.php:254
+msgid "Stok Raporu"
+msgstr "Rapport de stock"
+
+#: woocommerce-advanced-stock-manager.php:80
+#: woocommerce-advanced-stock-manager.php:81
+msgid "Stok Yönetimi Ayarları"
+msgstr "Paramètres de gestion des stocks."
+
+#: woocommerce-advanced-stock-manager.php:153
+msgid "Stok yönetimi ve sipariş önerilerini özelleştirme ayarları."
+msgstr ""
+"Paramètres de personnalisation de la gestion des stocks et des "
+"recommandations de commande."
+
+#: includes/class-wasm-fpdf.php:138
+msgid "Stok Yönetimi Özet Raporu"
+msgstr "Résumé du rapport de gestion des stocks"
+
+#: includes/class-wasm-fpdf.php:537
+msgid "Stok/Satış Oranı"
+msgstr "Ratio stock/ventes"
+
+#: includes/class-wasm-fpdf.php:571
+msgid "Tahmini Yıllık Stok Devir Hızı:"
+msgstr "Estimation du taux annuel de rotation des stocks :"
+
+#: woocommerce-advanced-stock-manager.php:224
+msgid "Tarih Aralığı"
+msgstr "Plage de dates"
+
+#: includes/class-wasm-fpdf.php:166
+msgid "Tarih Aralığı:"
+msgstr "Plage de dates :"
+
+#: woocommerce-advanced-stock-manager.php:248
+msgid "Tekrar Dene"
+msgstr "Réessayer"
+
+#: woocommerce-advanced-stock-manager.php:245 includes/class-wasm-fpdf.php:255
+#: includes/class-wasm-fpdf.php:535
+msgid "Toplam Satış"
+msgstr "Ventes totales"
+
+#: woocommerce-advanced-stock-manager.php:217 includes/class-wasm-fpdf.php:220
+msgid "Toplam Ürün"
+msgstr "Total des produits"
+
+#: woocommerce-advanced-stock-manager.php:226
+msgid "Tüm Kategoriler"
+msgstr "Toutes les catégories"
+
+#: woocommerce-advanced-stock-manager.php:228
+msgid "Tümü"
+msgstr "Tout"
+
+#. Name of the plugin
+#: woocommerce-advanced-stock-manager.php:215 includes/class-wasm-admin.php:32
+msgid "WooCommerce Gelişmiş Stok Yönetimi"
+msgstr "WooCommerce - Gestion avancée des stocks et rapport"
+
+#: woocommerce-advanced-stock-manager.php:106 includes/class-wasm-admin.php:44
+msgid "WooCommerce Gelişmiş Stok Yönetimi Ayarları"
+msgstr ""
+"WooCommerce - Paramètres de gestion avancée des stocks et des rapports."
+
+#: woocommerce-advanced-stock-manager.php:46
+msgid ""
+"WooCommerce Gelişmiş Stok Yönetimi eklentisi için WooCommerce eklentisinin "
+"yüklü ve aktif olması gerekir."
+msgstr ""
+"Pour le plugin de gestion avancée des stocks de WooCommerce, le plugin "
+"WooCommerce doit être installé et actif."
+
+#: includes/class-wasm-fpdf.php:146
+msgid "WooCommerce Gelişmiş Stok Yönetimi Raporu"
+msgstr "Rapport avancé de gestion des stocks WooCommerce"
+
+#. Description of the plugin
+msgid ""
+"WooCommerce için gelişmiş stok yönetimi, analizi ve sipariş planlaması "
+"eklentisi."
+msgstr ""
+"Plugin de gestion avancée des stocks, d'analyse et de planification des "
+"commandes pour WooCommerce."
+
+#: woocommerce-advanced-stock-manager.php:247
+msgid "Yükleniyor..."
+msgstr "Chargement..."
+
+#: includes/class-wasm-fpdf.php:326 includes/class-wasm-fpdf.php:484
+msgid "Önerilen"
+msgstr "Recommandé"
+
+#: woocommerce-advanced-stock-manager.php:240
+msgid "Önerilen Sipariş"
+msgstr "Commande recommandée"
+
+#: includes/class-wasm-fpdf.php:214
+msgid "Özet Bilgiler"
+msgstr "Informations résumées"
+
+#: woocommerce-advanced-stock-manager.php:252
+msgid "Özet Rapor"
+msgstr "Rapport récapitulatif"
+
+#: woocommerce-advanced-stock-manager.php:235 includes/class-wasm-fpdf.php:321
+#: includes/class-wasm-fpdf.php:423 includes/class-wasm-fpdf.php:480
+msgid "Ürün Adı"
+msgstr "Nom du produit"
+
+#: woocommerce-advanced-stock-manager.php:231
+msgid "Ürün adı veya SKU ile ara..."
+msgstr "Rechercher par nom de produit ou SKU..."
+
+#: includes/class-wasm-fpdf.php:310
+msgid "Ürün bulunamadı."
+msgstr "Aucun produit trouvé."
+
+#: woocommerce-advanced-stock-manager.php:253
+msgid "Ürün Raporu"
+msgstr "Rapport produit"
+
+#: includes/class-wasm-fpdf.php:288
+msgid "Ürün Sayısı"
+msgstr "Nombre de produits"
+
+#: woocommerce-advanced-stock-manager.php:233 includes/class-wasm-fpdf.php:316
+msgid "Ürün Stok Listesi"
+msgstr "Liste de stock des produits"
+
+#: includes/class-wasm-fpdf.php:140
+msgid "Ürün Stok Raporu"
+msgstr "Rapport de stock des produits"
+
+#: woocommerce-advanced-stock-manager.php:234
+msgid "ürün gösteriliyor"
+msgstr "Produit affiché"
+
+#: woocommerce-advanced-stock-manager.php:243 includes/class-wasm-fpdf.php:188
+#: includes/class-wasm-fpdf.php:345 includes/class-wasm-fpdf.php:445
+msgid "İyi"
+msgstr "Bien"

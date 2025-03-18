@@ -1,0 +1,223 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: WooCommerce Gelişmiş Stok Yönetimi\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-11 21:58+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: \n"
+"Language: \n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Loco https://localise.biz/\n"
+"X-Loco-Version: 2.7.1; wp-6.7.2\n"
+"X-Domain: wc-advanced-stock-manager"
+
+#: woocommerce-advanced-stock-manager.php:228
+msgid "Arama"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:166
+msgid ""
+"Aylık satışların kaç katı stok tutmak istediğinizi belirler. Örneğin 2, iki "
+"aylık satışa yetecek stok tutmayı hedefler."
+msgstr ""
+
+#. Author of the plugin
+msgid "Codeon"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:240
+msgid "Düşük"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:216
+msgid "Düşük Stok"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:220
+msgid "Filtreler"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:242
+msgid "Filtrelere uygun ürün bulunamadı."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:221
+msgid "Filtreleri Temizle"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:69
+#: woocommerce-advanced-stock-manager.php:70
+msgid "Gelişmiş Stok Yönetimi"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:124
+msgid "Genel Ayarlar"
+msgstr ""
+
+#. Author URI of the plugin
+msgid "https://codeon.ch"
+msgstr ""
+
+#. URI of the plugin
+msgid "https://example.com/woocommerce-advanced-stock-manager"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:223
+msgid "Kategori"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:230
+msgid "Kategori Dağılımı"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:420
+msgid "Kategorisiz"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:239
+msgid "Kritik"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:227
+msgid "Kritik Stok"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:235
+msgid "Mevcut Stok"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:244
+msgid "Ortalama Stok"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:183
+msgid ""
+"Satış analizini kaç aylık veriye dayandırmak istediğinizi belirler. Örneğin "
+"3, son 3 ayın satış verilerini kullanır."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:219
+msgid "Satış ve Stok Trendi"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:217
+msgid "Sipariş Edilecek"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:131
+msgid "Sipariş Eşiği Hesaplama Faktörü"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:234
+msgid "SKU"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:236
+msgid "Son 3 Ay Satış"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:218
+msgid "Stok Değeri"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:225
+#: woocommerce-advanced-stock-manager.php:237
+msgid "Stok Durumu"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:214
+msgid ""
+"Stok durumunuzu izleyin, satış trendlerini analiz edin ve sipariş planlaması "
+"yapın."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:139
+msgid "Stok Hesaplama Periyodu (Ay)"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:78
+#: woocommerce-advanced-stock-manager.php:79
+msgid "Stok Yönetimi Ayarları"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:151
+msgid "Stok yönetimi ve sipariş önerilerini özelleştirme ayarları."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:222
+msgid "Tarih Aralığı"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:246
+msgid "Tekrar Dene"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:243
+msgid "Toplam Satış"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:215
+msgid "Toplam Ürün"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:224
+msgid "Tüm Kategoriler"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:226
+msgid "Tümü"
+msgstr ""
+
+#. Name of the plugin
+#: woocommerce-advanced-stock-manager.php:213 includes/class-wasm-admin.php:32
+msgid "WooCommerce Gelişmiş Stok Yönetimi"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:104 includes/class-wasm-admin.php:44
+msgid "WooCommerce Gelişmiş Stok Yönetimi Ayarları"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:46
+msgid ""
+"WooCommerce Gelişmiş Stok Yönetimi eklentisi için WooCommerce eklentisinin "
+"yüklü ve aktif olması gerekir."
+msgstr ""
+
+#. Description of the plugin
+msgid ""
+"WooCommerce için gelişmiş stok yönetimi, analizi ve sipariş planlaması "
+"eklentisi."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:245
+msgid "Yükleniyor..."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:238
+msgid "Önerilen Sipariş"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:233
+msgid "Ürün Adı"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:229
+msgid "Ürün adı veya SKU ile ara..."
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:231
+msgid "Ürün Stok Listesi"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:232
+msgid "ürün gösteriliyor"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:241
+msgid "İyi"
+msgstr ""

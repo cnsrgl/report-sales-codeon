@@ -1,0 +1,237 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: WooCommerce Gelişmiş Stok Yönetimi\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-11 21:58+0000\n"
+"PO-Revision-Date: 2025-03-11 22:08+0000\n"
+"Last-Translator: \n"
+"Language-Team: Français\n"
+"Language: fr_FR\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Loco https://localise.biz/\n"
+"X-Loco-Version: 2.7.1; wp-6.7.2\n"
+"X-Domain: wc-advanced-stock-manager"
+
+#: woocommerce-advanced-stock-manager.php:228
+msgid "Arama"
+msgstr "Recherche"
+
+#: woocommerce-advanced-stock-manager.php:166
+msgid ""
+"Aylık satışların kaç katı stok tutmak istediğinizi belirler. Örneğin 2, iki "
+"aylık satışa yetecek stok tutmayı hedefler."
+msgstr ""
+"Détermine combien de fois vos ventes mensuelles vous souhaitez garder en "
+"stock. Par exemple, si vous indiquez 2, cela signifie que vous visez un "
+"stock suffisant pour couvrir deux mois de ventes."
+
+#. Author of the plugin
+msgid "Codeon"
+msgstr "Codeon"
+
+#: woocommerce-advanced-stock-manager.php:240
+msgid "Düşük"
+msgstr "Faible"
+
+#: woocommerce-advanced-stock-manager.php:216
+msgid "Düşük Stok"
+msgstr "Stock faible"
+
+#: woocommerce-advanced-stock-manager.php:220
+msgid "Filtreler"
+msgstr "Filtres"
+
+#: woocommerce-advanced-stock-manager.php:242
+msgid "Filtrelere uygun ürün bulunamadı."
+msgstr "Aucun produit correspondant aux filtres n'a été trouvé."
+
+#: woocommerce-advanced-stock-manager.php:221
+msgid "Filtreleri Temizle"
+msgstr "Effacer les filtres."
+
+#: woocommerce-advanced-stock-manager.php:69
+#: woocommerce-advanced-stock-manager.php:70
+msgid "Gelişmiş Stok Yönetimi"
+msgstr "Gestion de stock avancée et rapport"
+
+#: woocommerce-advanced-stock-manager.php:124
+msgid "Genel Ayarlar"
+msgstr "Paramètres généraux."
+
+#. Author URI of the plugin
+msgid "https://codeon.ch"
+msgstr ""
+
+#. URI of the plugin
+msgid "https://example.com/woocommerce-advanced-stock-manager"
+msgstr "https://codeon.ch/"
+
+#: woocommerce-advanced-stock-manager.php:223
+msgid "Kategori"
+msgstr "Catégorie"
+
+#: woocommerce-advanced-stock-manager.php:230
+msgid "Kategori Dağılımı"
+msgstr "Répartition des catégories"
+
+#: woocommerce-advanced-stock-manager.php:420
+msgid "Kategorisiz"
+msgstr "Sans catégorie"
+
+#: woocommerce-advanced-stock-manager.php:239
+msgid "Kritik"
+msgstr "Critique"
+
+#: woocommerce-advanced-stock-manager.php:227
+msgid "Kritik Stok"
+msgstr "Stock critique"
+
+#: woocommerce-advanced-stock-manager.php:235
+msgid "Mevcut Stok"
+msgstr "Stock actuel"
+
+#: woocommerce-advanced-stock-manager.php:244
+msgid "Ortalama Stok"
+msgstr "Stock moyen"
+
+#: woocommerce-advanced-stock-manager.php:183
+msgid ""
+"Satış analizini kaç aylık veriye dayandırmak istediğinizi belirler. Örneğin "
+"3, son 3 ayın satış verilerini kullanır."
+msgstr ""
+"Déterminez sur combien de mois de données vous souhaitez baser votre analyse "
+"des ventes. Par exemple, si vous indiquez 3, cela utilisera les données de "
+"ventes des 3 derniers mois."
+
+#: woocommerce-advanced-stock-manager.php:219
+msgid "Satış ve Stok Trendi"
+msgstr "Tendance des ventes et des stocks"
+
+#: woocommerce-advanced-stock-manager.php:217
+msgid "Sipariş Edilecek"
+msgstr "À commander"
+
+#: woocommerce-advanced-stock-manager.php:131
+msgid "Sipariş Eşiği Hesaplama Faktörü"
+msgstr "Facteur de calcul du seuil de commande"
+
+#: woocommerce-advanced-stock-manager.php:234
+msgid "SKU"
+msgstr ""
+
+#: woocommerce-advanced-stock-manager.php:236
+msgid "Son 3 Ay Satış"
+msgstr "Ventes des 3 derniers mois"
+
+#: woocommerce-advanced-stock-manager.php:218
+msgid "Stok Değeri"
+msgstr "Valeur du stock"
+
+#: woocommerce-advanced-stock-manager.php:225
+#: woocommerce-advanced-stock-manager.php:237
+msgid "Stok Durumu"
+msgstr "État du stock"
+
+#: woocommerce-advanced-stock-manager.php:214
+msgid ""
+"Stok durumunuzu izleyin, satış trendlerini analiz edin ve sipariş planlaması "
+"yapın."
+msgstr ""
+"Surveillez l'état de votre stock, analysez les tendances de vente et "
+"planifiez vos commandes."
+
+#: woocommerce-advanced-stock-manager.php:139
+msgid "Stok Hesaplama Periyodu (Ay)"
+msgstr "Période de calcul du stock (Mois)"
+
+#: woocommerce-advanced-stock-manager.php:78
+#: woocommerce-advanced-stock-manager.php:79
+msgid "Stok Yönetimi Ayarları"
+msgstr "Paramètres de gestion des stocks."
+
+#: woocommerce-advanced-stock-manager.php:151
+msgid "Stok yönetimi ve sipariş önerilerini özelleştirme ayarları."
+msgstr ""
+"Paramètres de personnalisation de la gestion des stocks et des "
+"recommandations de commande."
+
+#: woocommerce-advanced-stock-manager.php:222
+msgid "Tarih Aralığı"
+msgstr "Plage de dates"
+
+#: woocommerce-advanced-stock-manager.php:246
+msgid "Tekrar Dene"
+msgstr "Réessayer"
+
+#: woocommerce-advanced-stock-manager.php:243
+msgid "Toplam Satış"
+msgstr "Ventes totales"
+
+#: woocommerce-advanced-stock-manager.php:215
+msgid "Toplam Ürün"
+msgstr "Total des produits"
+
+#: woocommerce-advanced-stock-manager.php:224
+msgid "Tüm Kategoriler"
+msgstr "Toutes les catégories"
+
+#: woocommerce-advanced-stock-manager.php:226
+msgid "Tümü"
+msgstr "Tout"
+
+#. Name of the plugin
+#: woocommerce-advanced-stock-manager.php:213 includes/class-wasm-admin.php:32
+msgid "WooCommerce Gelişmiş Stok Yönetimi"
+msgstr "WooCommerce - Gestion avancée des stocks et rapport"
+
+#: woocommerce-advanced-stock-manager.php:104 includes/class-wasm-admin.php:44
+msgid "WooCommerce Gelişmiş Stok Yönetimi Ayarları"
+msgstr ""
+"WooCommerce - Paramètres de gestion avancée des stocks et des rapports."
+
+#: woocommerce-advanced-stock-manager.php:46
+msgid ""
+"WooCommerce Gelişmiş Stok Yönetimi eklentisi için WooCommerce eklentisinin "
+"yüklü ve aktif olması gerekir."
+msgstr ""
+"Pour le plugin de gestion avancée des stocks de WooCommerce, le plugin "
+"WooCommerce doit être installé et actif."
+
+#. Description of the plugin
+msgid ""
+"WooCommerce için gelişmiş stok yönetimi, analizi ve sipariş planlaması "
+"eklentisi."
+msgstr ""
+"Plugin de gestion avancée des stocks, d'analyse et de planification des "
+"commandes pour WooCommerce."
+
+#: woocommerce-advanced-stock-manager.php:245
+msgid "Yükleniyor..."
+msgstr "Chargement..."
+
+#: woocommerce-advanced-stock-manager.php:238
+msgid "Önerilen Sipariş"
+msgstr "Commande recommandée"
+
+#: woocommerce-advanced-stock-manager.php:233
+msgid "Ürün Adı"
+msgstr "Nom du produit"
+
+#: woocommerce-advanced-stock-manager.php:229
+msgid "Ürün adı veya SKU ile ara..."
+msgstr "Rechercher par nom de produit ou SKU..."
+
+#: woocommerce-advanced-stock-manager.php:231
+msgid "Ürün Stok Listesi"
+msgstr "Liste de stock des produits"
+
+#: woocommerce-advanced-stock-manager.php:232
+msgid "ürün gösteriliyor"
+msgstr "Produit affiché"
+
+#: woocommerce-advanced-stock-manager.php:241
+msgid "İyi"
+msgstr "Bien"

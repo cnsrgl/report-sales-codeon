@@ -5,6 +5,7 @@ import SummaryCards from './components/SummaryCards';
 import SalesTrendChart from './components/SalesTrendChart';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
+import ReportPanel from './components/ReportPanel';
 import { formatCurrency } from './utils/formatters';
 
 const App = () => {
@@ -111,6 +112,109 @@ const App = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // PDF raporu oluştur ve indir
+  const generatePdfReport = async (reportType) => {
+    try {
+      // API için temel URL ve headers
+      const baseUrl = window.wasmSettings.apiUrl || '/wp-json/wc-advanced-stock-manager/v1';
+      const headers = {
+        'X-WP-Nonce': window.wasmSettings.nonce || '',
+        'Content-Type': 'application/json'
+      };
+      
+      // Debug için API bilgilerini konsola yazdır
+      console.log('API Bilgileri:', {
+        baseUrl: baseUrl,
+        endpoint: `${baseUrl}/generate-pdf`,
+        nonce: headers['X-WP-Nonce'] ? 'Var (gizlendi)' : 'Yok',
+        filtreler: filters
+      });
+
+      // İstek gövdesi
+      const requestBody = {
+        reportType: reportType,
+        filters: filters
+      };
+      
+      console.log('İstek gövdesi:', JSON.stringify(requestBody));
+
+      // Rapor oluşturma isteği gönder
+      const response = await fetch(`${baseUrl}/generate-pdf`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody),
+        credentials: 'same-origin' // Cookie ve kimlik bilgilerini gönder
+      });
+
+      // Hata yanıtını ele al
+      if (!response.ok) {
+        let errorMessage = `HTTP Hata: ${response.status} ${response.statusText}`;
+        let errorDetails = '';
+        
+        try {
+          // Hata yanıtını JSON olarak parse etmeyi dene
+          const errorData = await response.json();
+          errorDetails = JSON.stringify(errorData);
+        } catch (parseError) {
+          // JSON olarak parse edilemezse metin olarak al
+          errorDetails = await response.text();
+        }
+        
+        console.error('API Hata Detayları:', {
+          status: response.status,
+          statusText: response.statusText,
+          details: errorDetails
+        });
+        
+        throw new Error(`${errorMessage}. Detaylar: ${errorDetails}`);
+      }
+
+      // Başarılı yanıtı ele al
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('API yanıtı JSON olarak parse edilemedi:', jsonError);
+        throw new Error('API yanıtı geçersiz format.');
+      }
+
+      // Yanıt verilerini doğrula
+      if (!data.success || !data.content) {
+        console.error('Geçersiz API yanıtı:', data);
+        throw new Error('API geçersiz yanıt döndürdü.');
+      }
+
+      // Base64 formatındaki PDF içeriğini çöz
+      const binaryString = window.atob(data.content);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // PDF dosyasını oluştur
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Dosyayı indir
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', data.fileName || 'report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      
+      // Temizleme işlemleri
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (err) {
+      console.error('PDF Rapor Hatası:', err);
+      throw err;
     }
   };
 
@@ -252,6 +356,14 @@ const App = () => {
                 applyFilters={applyFilters} 
                 resetFilters={resetFilters} 
                 categories={categories} 
+              />
+            </div>
+            
+            {/* Rapor Paneli */}
+            <div className="mb-8">
+              <ReportPanel 
+                filters={filters}
+                onGenerateReport={generatePdfReport}
               />
             </div>
             

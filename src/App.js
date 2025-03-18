@@ -63,6 +63,8 @@ const App = () => {
         search: filters.search
       }).toString();
 
+      console.log('Ürünler için API URL:', productsUrl.toString());
+
       const productsResponse = await fetch(productsUrl, { headers });
 
       if (!productsResponse.ok) {
@@ -70,6 +72,23 @@ const App = () => {
       }
 
       const productsData = await productsResponse.json();
+      
+      // Log ürün verileri detayları
+      console.log(`${productsData.length} ürün yüklendi`);
+      
+      // Varyasyonlu ürünleri kontrol et
+      const variableProducts = productsData.filter(p => p.productType === 'variable');
+      console.log(`${variableProducts.length} varyasyonlu ürün bulundu`);
+      
+      let variationCount = 0;
+      variableProducts.forEach(p => {
+        if (p.variations && Array.isArray(p.variations)) {
+          variationCount += p.variations.length;
+        }
+      });
+      
+      console.log(`Toplam ${variationCount} varyasyon bulundu`);
+      
       setProducts(productsData);
       
       // Filtreleri uygula
@@ -218,7 +237,7 @@ const App = () => {
     }
   };
 
-  // Filtreleme mantığı - ayrı fonksiyon
+  // Filtreleme mantığı - arama artık SKU üzerinde yapılmıyor
   const filterProducts = (productsToFilter, currentFilters) => {
     let result = [...productsToFilter];
     
@@ -232,12 +251,11 @@ const App = () => {
       result = result.filter(product => product.stockStatus === currentFilters.stockStatus);
     }
     
-    // Arama filtreleme
+    // Arama filtreleme - sadece ürün adında arama yap, SKU alanında arama yapma
     if (currentFilters.search && currentFilters.search.trim() !== '') {
       const searchTerm = currentFilters.search.toLowerCase().trim();
       result = result.filter(product => 
-        (product.name && product.name.toLowerCase().includes(searchTerm)) || 
-        (product.sku && product.sku.toLowerCase().includes(searchTerm))
+        (product.name && product.name.toLowerCase().includes(searchTerm))
       );
     }
     

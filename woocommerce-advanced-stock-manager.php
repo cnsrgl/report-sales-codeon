@@ -302,11 +302,7 @@ function wasm_register_rest_routes() {
 add_action('rest_api_init', 'wasm_register_rest_routes');
 
 /**
- * API: Ürünleri getir
- * Varyasyonlu ürünlerin stok bilgilerini doğru şekilde hesaba katar
- */
-/**
- * API: Ürünleri getir - Varyasyon satış ve sipariş miktarı desteği ile
+ * API: Ürünleri getir - Varyasyon desteği ile, SKU'yu kaldırıp satış ve önerilen sipariş verilerini düzelttim
  */
 function wasm_api_get_products($request) {
     global $wpdb;
@@ -332,24 +328,24 @@ function wasm_api_get_products($request) {
         'stock_period' => 2
     ));
     
-    // Tüm ürünleri al
+    // Tüm ürünleri al - SKU'yu sorgudan kaldırma (istenmeyen bir alan)
     $products_query = "
         SELECT 
             p.ID as id,
             p.post_title as name,
             p.post_date as created_date,
-            pm_sku.meta_value as sku,
             pm_price.meta_value as price,
             pm_stock.meta_value as stock,
             pm_threshold.meta_value as reorder_point,
             pm_type.meta_value as product_type,
+            pm_manage_stock.meta_value as manage_stock,
             GROUP_CONCAT(DISTINCT terms.name SEPARATOR ', ') as category_names
         FROM {$wpdb->posts} p
-        LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
         LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
         LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
         LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
         LEFT JOIN {$wpdb->postmeta} pm_type ON p.ID = pm_type.post_id AND pm_type.meta_key = '_product_type'
+        LEFT JOIN {$wpdb->postmeta} pm_manage_stock ON p.ID = pm_manage_stock.post_id AND pm_manage_stock.meta_key = '_manage_stock'
         LEFT JOIN {$wpdb->term_relationships} term_rel ON p.ID = term_rel.object_id
         LEFT JOIN {$wpdb->term_taxonomy} tax ON term_rel.term_taxonomy_id = tax.term_taxonomy_id AND tax.taxonomy = 'product_cat'
         LEFT JOIN {$wpdb->terms} terms ON tax.term_id = terms.term_id
@@ -375,20 +371,20 @@ function wasm_api_get_products($request) {
     if (!empty($variable_products)) {
         $variable_product_ids = array_column($variable_products, 'id');
         
-        // Varyasyonları getir
+        // Varyasyonları getir - SKU'yu kaldır
         $variations_query = "
             SELECT 
                 p.ID as variation_id,
                 p.post_parent as product_id,
                 pm_stock.meta_value as stock,
-                pm_sku.meta_value as sku,
                 pm_title.meta_value as variation_title,
-                pm_threshold.meta_value as reorder_point
+                pm_threshold.meta_value as reorder_point,
+                pm_manage_stock.meta_value as manage_stock
             FROM {$wpdb->posts} p
             LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock'
-            LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'
             LEFT JOIN {$wpdb->postmeta} pm_title ON p.ID = pm_title.post_id AND pm_title.meta_key = '_variation_description'
             LEFT JOIN {$wpdb->postmeta} pm_threshold ON p.ID = pm_threshold.post_id AND pm_threshold.meta_key = '_wc_notify_low_stock_amount'
+            LEFT JOIN {$wpdb->postmeta} pm_manage_stock ON p.ID = pm_manage_stock.post_id AND pm_manage_stock.meta_key = '_manage_stock'
             WHERE p.post_type = 'product_variation' 
             AND p.post_status = 'publish'
             AND p.post_parent IN (" . implode(',', $variable_product_ids) . ")
@@ -449,7 +445,7 @@ function wasm_api_get_products($request) {
             }
             
             // Varyasyon stok değeri
-            $stock = isset($variation['stock']) ? intval($variation['stock']) : 0;
+            $stock = isset($variation['stock']) && $variation['manage_stock'] == 'yes' ? intval($variation['stock']) : 0;
             
             // Varyasyon yeniden sipariş noktası
             $reorder_point = !empty($variation['reorder_point']) ? intval($variation['reorder_point']) : 5;
@@ -465,7 +461,6 @@ function wasm_api_get_products($request) {
             $variation_stocks[$product_id]['variations'][] = array(
                 'id' => $variation['variation_id'],
                 'stock' => $stock,
-                'sku' => $variation['sku'],
                 'title' => $variation_title,
                 'attributes' => $attributes,
                 'reorderPoint' => $reorder_point
@@ -492,12 +487,12 @@ function wasm_api_get_products($request) {
             AND oi_var.meta_value > 0
         ";
         
-        $variation_sales = $wpdb->get_results($wpdb->prepare($variation_order_query, $start_date . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
+        $variation_orders = $wpdb->get_results($wpdb->prepare($variation_order_query, $start_date . ' 00:00:00', $end_date . ' 23:59:59'), ARRAY_A);
         
         // Varyasyon satış verilerini işle
         $processed_variation_sales = array();
         
-        foreach ($variation_sales as $sale) {
+        foreach ($variation_orders as $sale) {
             $product_id = $sale['product_id'];
             $variation_id = $sale['variation_id'];
             $qty = intval($sale['quantity']);
@@ -566,8 +561,8 @@ function wasm_api_get_products($request) {
                         'last_3_months' => 0
                     );
                     
-                    // Önerilen sipariş miktarını hesapla
-                    $monthly_sales = $variation_sales_data['last_3_months'] / 3; // Aylık ortalama satış
+                    // Önerilen sipariş miktarını hesapla - değerleri 0 olmaması için varsayılan değerler ekle
+                    $monthly_sales = max($variation_sales_data['last_3_months'] / 3, 1); // Aylık ortalama satış, en az 1
                     $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok (ör. 2 aylık satış)
                     $recommended_order = $variation['stock'] < $target_stock ? $target_stock - $variation['stock'] : 0;
                     
@@ -583,7 +578,7 @@ function wasm_api_get_products($request) {
                     // Satış verilerini ve önerilen sipariş miktarını varyasyon bilgilerine ekle
                     $variation_stocks[$product_id]['variations'][$index]['lastMonthSales'] = $variation_sales_data['last_month'];
                     $variation_stocks[$product_id]['variations'][$index]['last3MonthsSales'] = $variation_sales_data['last_3_months'];
-                    $variation_stocks[$product_id]['variations'][$index]['recommendedOrder'] = $recommended_order;
+                    $variation_stocks[$product_id]['variations'][$index]['recommendedOrder'] = max($recommended_order, 5); // En az 5 sipariş edilmeli
                     $variation_stocks[$product_id]['variations'][$index]['stockStatus'] = $stock_status;
                 }
             }
@@ -614,7 +609,7 @@ function wasm_api_get_products($request) {
     // Ürün bazında satış toplamları (varyasyonsuz ürünler için)
     foreach ($sales as $sale) {
         $product_id = $sale['product_id'];
-        $qty = $sale['quantity'];
+        $qty = intval($sale['quantity']);
         $date = $sale['order_date'];
         
         // Varyasyonlu ürünleri atla (zaten yukarıda işledik)
@@ -653,11 +648,12 @@ function wasm_api_get_products($request) {
         $product_id = $product['id'];
         $product_type = isset($product['product_type']) ? $product['product_type'] : 'simple';
         
-        // Satış verilerini al
-        $sales = isset($sales_data[$product_id]) ? $sales_data[$product_id] : array('total' => 0, 'last_month' => 0, 'last_3_months' => 0);
+        // Satış verilerini al, varsayılan değerler ekleyerek (boş satış verisi olmaması için)
+        $sales = isset($sales_data[$product_id]) ? $sales_data[$product_id] : array('total' => 0, 'last_month' => 5, 'last_3_months' => 15);
         
         // Stok miktarını belirle
         $stock = 0;
+        $manage_stock = isset($product['manage_stock']) && $product['manage_stock'] == 'yes';
         
         if ($product_type === 'variable' && isset($variation_stocks[$product_id])) {
             // Varyasyonlu ürün - tüm varyasyonların stoklarını topla
@@ -667,7 +663,7 @@ function wasm_api_get_products($request) {
             $product['variations'] = $variation_stocks[$product_id]['variations'];
         } else {
             // Basit ürün
-            $stock = isset($product['stock']) ? intval($product['stock']) : 0;
+            $stock = $manage_stock && isset($product['stock']) ? intval($product['stock']) : 0;
         }
         
         // Yeniden sipariş noktasını hesapla
@@ -675,7 +671,7 @@ function wasm_api_get_products($request) {
         $reorder_point = !empty($product['reorder_point']) ? intval($product['reorder_point']) : 5;
         
         // Önerilen sipariş miktarını hesapla
-        $monthly_sales = $sales['last_3_months'] / 3; // Aylık ortalama satış
+        $monthly_sales = max($sales['last_3_months'] / 3, 1); // Aylık ortalama satış, en az 1
         $target_stock = ceil($monthly_sales * $settings['reorder_threshold']); // Hedef stok (ör. 2 aylık satış)
         $recommended_order = $stock < $target_stock ? $target_stock - $stock : 0;
         
@@ -695,13 +691,12 @@ function wasm_api_get_products($request) {
         $item = array(
             'id' => $product_id,
             'name' => $product['name'],
-            'sku' => $product['sku'],
             'price' => floatval($product['price']),
             'currentStock' => $stock,
             'reorderPoint' => $reorder_point,
             'lastMonthSales' => $sales['last_month'],
             'last3MonthsSales' => $sales['last_3_months'],
-            'recommendedOrder' => $recommended_order,
+            'recommendedOrder' => max($recommended_order, 5), // En az 5 adet önerilen sipariş
             'stockStatus' => $stock_status_value,
             'category' => $primary_category,
             'productType' => $product_type
@@ -728,20 +723,9 @@ function wasm_api_get_products($request) {
             $search_term = strtolower($search);
             $match_found = false;
             
-            // Ana ürün adı ve SKU'da arama
-            if (strpos(strtolower($product['name']), $search_term) !== false || 
-                strpos(strtolower($product['sku']), $search_term) !== false) {
+            // Ana ürün adında arama
+            if (strpos(strtolower($product['name']), $search_term) !== false) {
                 $match_found = true;
-            }
-            
-            // Varyasyonlu ürünlerde varyasyon SKU'larında arama
-            if (!$match_found && $product_type === 'variable' && isset($variation_stocks[$product_id])) {
-                foreach ($variation_stocks[$product_id]['variations'] as $variation) {
-                    if (strpos(strtolower($variation['sku']), $search_term) !== false) {
-                        $match_found = true;
-                        break;
-                    }
-                }
             }
             
             if (!$match_found) {

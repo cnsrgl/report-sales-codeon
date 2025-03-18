@@ -22,8 +22,7 @@ const ProductTable = ({ products, filters, onSort }) => {
       variable: 'Değişkenli',
       simple: 'Basit',
       variation: 'Varyasyon',
-      total: 'Toplam',
-      sku: 'SKU'
+      total: 'Toplam'
     }
   };
   
@@ -107,9 +106,6 @@ const ProductTable = ({ products, filters, onSort }) => {
                   )}
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                {translations.sku || 'SKU'}
-              </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-28" onClick={() => onSort('currentStock')}>
                 <div className="flex items-center">
                   {translations.currentStock || 'Mevcut Stok'}
@@ -145,7 +141,7 @@ const ProductTable = ({ products, filters, onSort }) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {products.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                   {translations.noProductsFound || 'Filtrelere uygun ürün bulunamadı.'}
                 </td>
               </tr>
@@ -191,9 +187,6 @@ const ProductTable = ({ products, filters, onSort }) => {
                             )}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {product.sku || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-medium ${statusColors.textColor}`}>
@@ -254,9 +247,6 @@ const ProductTable = ({ products, filters, onSort }) => {
                                   {variation.attributes.join(', ')}
                                 </div>
                               )}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                              {variation.sku || '-'}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap">
                               <div className={`text-sm font-medium ${variationStatusColors.textColor}`}>

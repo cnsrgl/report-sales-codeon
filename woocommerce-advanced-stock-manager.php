@@ -654,7 +654,7 @@ function wasm_get_stock_status($stock_quantity) {
 }
 
 /**
- * Belirli bir zaman aralığında ürün satışlarını hesaplar - HPOS uyumlu versiyon
+ * Belirli bir zaman aralığında ürün satışlarını hesaplar - Klasik WooCommerce tabloları ile
  *
  * @param int $product_id Ürün ID
  * @param string $start_date Başlangıç tarihi (YYYY-MM-DD)
@@ -671,56 +671,23 @@ function wasm_get_product_sales_in_period($product_id, $start_date = '', $end_da
         $end_date = date('Y-m-d');
     }
     
-    // HPOS aktif mi kontrol et
-    $is_hpos_enabled = class_exists('\Automattic\WooCommerce\Utilities\OrderUtil') && 
-                        \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
-    
-    // Satış verilerini getir
-    global $wpdb;
-    
-    if ($is_hpos_enabled) {
-        // HPOS etkinse: wc_orders ve wc_order_items tablolarını kullan
-        $orders_table = $wpdb->prefix . 'wc_orders';
-        $order_items_table = $wpdb->prefix . 'wc_order_items';
-        $order_itemmeta_table = $wpdb->prefix . 'wc_order_itemmeta';
+    try {
+        // Satış verilerini getir
+        global $wpdb;
         
-        // Ana ürün satışları
-        $sales_query = $wpdb->prepare(
-            "SELECT SUM(order_item_meta__qty.meta_value) as qty 
-            FROM {$orders_table} AS orders
-            INNER JOIN {$order_items_table} AS order_items ON orders.id = order_items.order_id
-            INNER JOIN {$order_itemmeta_table} AS order_item_meta__product_id ON order_items.order_item_id = order_item_meta__product_id.order_item_id
-            INNER JOIN {$order_itemmeta_table} AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
-            WHERE orders.type = 'shop_order'
-            AND orders.status IN ('wc-completed', 'wc-processing')
-            AND order_item_meta__product_id.meta_key = '_product_id'
-            AND order_item_meta__product_id.meta_value = %d
-            AND order_item_meta__qty.meta_key = '_qty'
-            AND orders.date_created_gmt BETWEEN %s AND %s",
-            $product_id,
-            $start_date . ' 00:00:00',
-            $end_date . ' 23:59:59'
-        );
+        // Önce tablo varlığını kontrol et
+        $post_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->posts}'") === $wpdb->posts;
+        $order_items_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}woocommerce_order_items'") === $wpdb->prefix . 'woocommerce_order_items';
+        $order_itemmeta_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}woocommerce_order_itemmeta'") === $wpdb->prefix . 'woocommerce_order_itemmeta';
         
-        // Varyasyonlar
-        $variation_sales_query = $wpdb->prepare(
-            "SELECT SUM(order_item_meta__qty.meta_value) as qty 
-            FROM {$orders_table} AS orders
-            INNER JOIN {$order_items_table} AS order_items ON orders.id = order_items.order_id
-            INNER JOIN {$order_itemmeta_table} AS order_item_meta__variation_id ON order_items.order_item_id = order_item_meta__variation_id.order_item_id
-            INNER JOIN {$order_itemmeta_table} AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
-            WHERE orders.type = 'shop_order'
-            AND orders.status IN ('wc-completed', 'wc-processing')
-            AND order_item_meta__variation_id.meta_key = '_variation_id'
-            AND order_item_meta__variation_id.meta_value = %d
-            AND order_item_meta__qty.meta_key = '_qty'
-            AND orders.date_created_gmt BETWEEN %s AND %s",
-            $product_id,
-            $start_date . ' 00:00:00',
-            $end_date . ' 23:59:59'
-        );
-    } else {
-        // HPOS etkin değilse: posts ve woocommerce_order_items tablolarını kullan
+        if (!$post_table_exists || !$order_items_table_exists || !$order_itemmeta_table_exists) {
+            error_log("WASM: WooCommerce tablo kontrolünde eksik tablolar bulundu. post_table: " . 
+                      ($post_table_exists ? "var" : "yok") . ", order_items_table: " . 
+                      ($order_items_table_exists ? "var" : "yok") . ", order_itemmeta_table: " . 
+                      ($order_itemmeta_table_exists ? "var" : "yok"));
+            return 0;
+        }
+        
         // Ana ürün satışları
         $sales_query = $wpdb->prepare(
             "SELECT SUM(order_item_meta__qty.meta_value) as qty 
@@ -756,24 +723,36 @@ function wasm_get_product_sales_in_period($product_id, $start_date = '', $end_da
             $start_date . ' 00:00:00',
             $end_date . ' 23:59:59'
         );
-    }
-    
-    $product_sales = $wpdb->get_var($sales_query);
-    $variation_sales = $wpdb->get_var($variation_sales_query);
-    
-    // Null değerler için 0 kullan
-    $product_sales = $product_sales ? intval($product_sales) : 0;
-    $variation_sales = $variation_sales ? intval($variation_sales) : 0;
-    
-    // Ürün tipine göre uygun değeri döndür (geri kalan kod aynı)...
-    $product = wc_get_product($product_id);
-    
-    if ($product && $product->is_type('variation')) {
-        // Varyasyon ise sadece varyasyon satışlarını döndür
-        return $variation_sales;
-    } else {
-        // Ana ürün işleme mantığı
-        // ...
+        
+        // Debug amaçlı sorguları logla (ilk kez çalıştırırken)
+        if ($product_id == get_option('wasm_first_run_check', 0)) {
+            error_log("WASM: Ürün satışı sorgusu (ürün {$product_id}): " . $sales_query);
+            update_option('wasm_first_run_check', 0); // Bir kez logla
+        }
+        
+        $product_sales = $wpdb->get_var($sales_query);
+        $variation_sales = $wpdb->get_var($variation_sales_query);
+        
+        // Null değerler için 0 kullan
+        $product_sales = $product_sales ? intval($product_sales) : 0;
+        $variation_sales = $variation_sales ? intval($variation_sales) : 0;
+        
+        // Ürün tipine göre uygun değeri döndür
+        $product = wc_get_product($product_id);
+        
+        if ($product && $product->is_type('variation')) {
+            // Varyasyon ise sadece varyasyon satışlarını döndür
+            return $variation_sales;
+        } elseif ($product && $product->is_type('variable')) {
+            // Değişken ürün ise ana ürün + varyasyonların satışlarını döndür
+            return $product_sales + $variation_sales;
+        } else {
+            // Basit ürün ise normal satışları döndür
+            return $product_sales;
+        }
+    } catch (Exception $e) {
+        error_log("WASM: Ürün satışı hesaplama hatası: " . $e->getMessage());
+        return 0;
     }
 }
 
@@ -787,30 +766,33 @@ function wasm_get_product_sales_in_period($product_id, $start_date = '', $end_da
 function wasm_get_total_sales_in_period($start_date, $end_date) {
     global $wpdb;
     
-    // HPOS aktif mi kontrol et
+    // Önce HPOS modunu tamamen devre dışı bırakalım - normal WooCommerce tablolarını kullanacağız
+    $is_hpos_enabled = false;
+    
+    /* 
+    // Şu anda HPOS kontrolünü devre dışı bırakıyoruz çünkü tablolar mevcut değil
     $is_hpos_enabled = class_exists('\Automattic\WooCommerce\Utilities\OrderUtil') && 
                         \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
     
+    // HPOS etkinse, önce tabloların var olduğunu kontrol et
     if ($is_hpos_enabled) {
-        // HPOS etkinse
-        $orders_table = $wpdb->prefix . 'wc_orders';
-        $order_items_table = $wpdb->prefix . 'wc_order_items';
-        $order_itemmeta_table = $wpdb->prefix . 'wc_order_itemmeta';
+        $table_exists = false;
+        try {
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}wc_order_items'") === "{$wpdb->prefix}wc_order_items";
+        } catch (Exception $e) {
+            error_log("WASM: HPOS tablo kontrolü hatası: " . $e->getMessage());
+            $table_exists = false;
+        }
         
-        $query = $wpdb->prepare(
-            "SELECT SUM(order_item_meta__qty.meta_value) as qty 
-            FROM {$orders_table} AS orders
-            INNER JOIN {$order_items_table} AS order_items ON orders.id = order_items.order_id
-            INNER JOIN {$order_itemmeta_table} AS order_item_meta__qty ON order_items.order_item_id = order_item_meta__qty.order_item_id
-            WHERE orders.type = 'shop_order'
-            AND orders.status IN ('wc-completed', 'wc-processing')
-            AND order_item_meta__qty.meta_key = '_qty'
-            AND orders.date_created_gmt BETWEEN %s AND %s",
-            $start_date . ' 00:00:00',
-            $end_date . ' 23:59:59'
-        );
-    } else {
-        // HPOS etkin değilse
+        if (!$table_exists) {
+            error_log("WASM: HPOS tablosu bulunamadı: {$wpdb->prefix}wc_order_items - varsayılan tablolara geçiliyor");
+            $is_hpos_enabled = false;
+        }
+    }
+    */
+    
+    try {
+        // HPOS devre dışı, klasik tabloları kullan
         $query = $wpdb->prepare(
             "SELECT SUM(order_item_meta__qty.meta_value) as qty 
             FROM {$wpdb->posts} AS posts
@@ -823,12 +805,34 @@ function wasm_get_total_sales_in_period($start_date, $end_date) {
             $start_date . ' 00:00:00',
             $end_date . ' 23:59:59'
         );
+        
+        // Sorguyu logla
+        error_log("WASM: Toplam satış sorgusu (Klasik WooCommerce Tabloları): " . $query);
+        
+        // Sorgu çalıştırılmadan önce tabloların varlığını kontrol et
+        $post_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->posts}'") === $wpdb->posts;
+        $order_items_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}woocommerce_order_items'") === $wpdb->prefix . 'woocommerce_order_items';
+        $order_itemmeta_table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}woocommerce_order_itemmeta'") === $wpdb->prefix . 'woocommerce_order_itemmeta';
+        
+        if (!$post_table_exists || !$order_items_table_exists || !$order_itemmeta_table_exists) {
+            error_log("WASM: WooCommerce tablo kontrolünde eksik tablolar bulundu. post_table: " . 
+                      ($post_table_exists ? "var" : "yok") . ", order_items_table: " . 
+                      ($order_items_table_exists ? "var" : "yok") . ", order_itemmeta_table: " . 
+                      ($order_itemmeta_table_exists ? "var" : "yok"));
+            return 0;
+        }
+        
+        $result = $wpdb->get_var($query);
+        error_log("WASM: Sorgu sonucu: " . ($result !== null ? $result : "NULL"));
+        
+        return $result ? intval($result) : 0;
+    } catch (Exception $e) {
+        error_log("WASM: Satış hesaplama hatası: " . $e->getMessage());
+        return 0;
     }
-    
-    $result = $wpdb->get_var($query);
-    
-    return $result ? intval($result) : 0;
 }
+
+
 /**
  * Belirli bir zaman aralığında ortalama stok miktarını hesaplar (HPOS uyumlu)
  *
